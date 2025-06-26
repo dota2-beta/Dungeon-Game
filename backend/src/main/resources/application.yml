@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: MyGame
+game:
+  settings:
+    default-player-max-ap: 6
+    default-monster-max-ap: 0
+    move-cost-hv: 0.5
+    move-cost-diag: 0.7
+    default-map-width: 10
+    default-map-height: 10
+    default-attack-cost: 2
