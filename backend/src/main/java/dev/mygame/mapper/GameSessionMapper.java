@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @RequiredArgsConstructor
 @Component
@@ -37,7 +38,8 @@ public class GameSessionMapper {
             gameSessionState.setMapState(gameMapMapper.toGameMapState(session.getGameMap()));
 
         List<EntityClientState> clientStates = session.getEntities().values().stream()
-                .map(entityMapper::toEntityClientState)
+                .map(entityMapper::toClientState)
+                .filter(Objects::nonNull)
                 .toList();
         gameSessionState.setEntities(clientStates);
 

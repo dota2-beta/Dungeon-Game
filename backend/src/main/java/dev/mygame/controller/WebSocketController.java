@@ -14,6 +14,7 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
+import java.security.Principal;
 import java.util.Date;
 import java.util.Map;
 
@@ -24,16 +25,15 @@ public class WebSocketController {
     private final SimpMessagingTemplate messagingTemplate;
 
     @MessageMapping("/join-session")
-    public void onJoinSession(@Payload JoinRequestDto joinRequest, SimpMessageHeaderAccessor headerAccessor) {
+    public void onJoinSession(@Payload JoinRequestDto joinRequest, SimpMessageHeaderAccessor headerAccessor, Principal principal) {
         String websocketSessionId = headerAccessor.getSessionId();
 
         String sessionId = joinRequest.getSessionId();
-        String userId = joinRequest.getUserId();
+        String userId = principal.getName();
 
         try {
             gameSessionManager.joinPlayer(userId, sessionId, websocketSessionId);
         } catch (Exception e) {
-            // ... отправить ошибку клиенту
         }
     }
 
@@ -47,22 +47,53 @@ public class WebSocketController {
     }
 
     @MessageMapping("/create-session") // Клиент отправляет сообщение на /app/create-session
-    public void onCreateSession(SimpMessageHeaderAccessor headerAccessor) {
+    public void onCreateSession(SimpMessageHeaderAccessor headerAccessor, Principal principal) {
         String websocketSessionId = headerAccessor.getSessionId();
-        // Временный userId, пока нет аутентификации
-        String userId = websocketSessionId;
+        //временный userId, пока нет аутентификации
+        String userId = principal.getName();
+        //String userId = websocketSessionId;
 
         try {
-            // Вызываем упрощенный метод создания сессии в менеджере
             String sessionId = gameSessionManager.createSession();
 
-            // Отправляем ID созданной сессии обратно клиенту
-            Map<String, String> response = Map.of("sessionId", sessionId);
-            messagingTemplate.convertAndSendToUser(userId, "/queue/session-created", response); // Используем личный топик
+            Map<String, String> response = Map.of(
+                    "status", "success",
+                    "sessionId", sessionId
+            );
+            messagingTemplate.convertAndSendToUser(userId, "/queue/create-session-response", response); // Используем личный топик
         } catch (Exception e) {
             // ... обработка ошибок ...
         }
     }
+
+//    @MessageMapping("/create-session")
+//    public void onCreateSession(SimpMessageHeaderAccessor headerAccessor) {
+//        String websocketSessionId = headerAccessor.getSessionId();
+//        if (websocketSessionId == null) {
+//            System.err.println("Cannot process /create-session: websocketSessionId is null.");
+//            return;
+//        }
+//
+//        try {
+//            String sessionId = gameSessionManager.createSession();
+//
+//            Map<String, String> response = Map.of(
+//                    "status", "success",
+//                    "sessionId", sessionId,
+//                    "recipientWsSessionId", websocketSessionId
+//            );
+//            messagingTemplate.convertAndSend("/topic/session-created-response", response);
+//
+//        } catch (Exception e) {
+//            Map<String, String> errorResponse = Map.of(
+//                    "status", "error",
+//                    "message", e.getMessage(),
+//                    "recipientWsSessionId", websocketSessionId
+//            );
+//            messagingTemplate.convertAndSend("/topic/session-created-response", errorResponse);
+//            e.printStackTrace();
+//        }
+//    }
 
     @MessageMapping("/send/message")
     @SendTo("/topic/public")

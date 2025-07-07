@@ -9,6 +9,6 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @NoArgsConstructor
 public abstract class GameMapObject {
-    private String id;
-    private Point position;
+    protected String id;
+    protected Point position;
 }

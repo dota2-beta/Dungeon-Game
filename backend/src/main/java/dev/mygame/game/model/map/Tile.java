@@ -17,7 +17,7 @@ public class Tile {
         return this.type.isWalkable() && !isOccupied();
     }
 
-    // занята ли клетка
+    // занята ли клетка кем-то
     public boolean isOccupied() {
         return occupiedById != null;
     }

@@ -15,18 +15,20 @@ import java.util.List;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @SuperBuilder
+@NoArgsConstructor
 public abstract class Entity extends GameMapObject {
-    protected String id;
+    //protected String id;
     protected String name;
     protected int currentHp;
     protected int maxHp;
     protected int attack;
     protected int defense;
+    protected int attackRange;
     private int currentAP;
     private int maxAP;
     private int initiative;
 
-    protected Point position;
+    //protected Point position;
 
     private EntityState state;
     private List<DeathListener> deathListener;

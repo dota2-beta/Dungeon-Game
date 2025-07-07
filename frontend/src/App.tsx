@@ -1,0 +1,272 @@
+import React, { useEffect, useState, type FC } from 'react';
+
+import { connect, subscribe, publish, disconnect } from './api/websocketService';
+import { GameProvider, useGame } from './context/GameContext';
+import type { 
+    GameSessionState, 
+    GameUpdatePayload, 
+    EntityMovedPayload, 
+    DamageTakenPayload, 
+    CombatEndedPayload, 
+    PlayerJoinedPayload,
+    PlayerLeftPayload,
+    PlayerClientState
+} from './types/dto';
+import GameCanvas from './components/GameCanvas';
+import type { IFrame } from '@stomp/stompjs';
+
+const Game: FC = () => {
+    console.log('--- Game component is rendering/re-rendering ---');
+    const { gameState, dispatch, setErrorMessage } = useGame();
+    const { errorMessage } = useGame();
+
+    const [sessionId, setSessionId] = useState<string | null>(null);
+    const [isConnectedToServer, setIsConnectedToServer] = useState<boolean>(false);
+    const [joinSessionId, setJoinSessionId] = useState<string>('');
+
+    useEffect(() => {
+        const onStompConnect = (frame: IFrame) => {
+            setIsConnectedToServer(true);
+            setErrorMessage('');
+            console.log('STOMP protocol is now active. Setting up general subscriptions...');
+
+            subscribe<{ status: string; sessionId?: string; message?: string }>(
+                '/user/queue/create-session-response',
+                (response) => {
+                    console.log('Received create-session response:', response);
+                    if (response.status === 'success' && response.sessionId) {
+                        console.log('Setting session ID to:', response.sessionId);
+                        setSessionId(response.sessionId);
+                    } else {
+                        console.log('Response was not successful or sessionId is missing.');
+                        setErrorMessage(response.message || 'Failed to create session.');
+                    }
+                }
+            );
+
+            subscribe<{ status: string; message?: string }>(
+                '/user/queue/join-session-response',
+                (response) => {
+                    if (response.status !== 'success') {
+                        setErrorMessage(response.message || 'Failed to join session.');
+                    }
+                }
+            );
+
+            subscribe<{ error: string }>(
+                '/user/queue/errors',
+                (errorPayload) => {
+                    console.error("Received an error from the server:", errorPayload.error);
+                    setErrorMessage(errorPayload.error || "An unknown error occurred.");
+                }
+            );
+        };
+
+        const onError = (error: any) => {
+            console.error("Connection error:", error);
+            setIsConnectedToServer(false);
+            setErrorMessage('Failed to connect to the server. Please refresh.');
+        };
+
+        connect(onStompConnect, onError);
+
+        return () => {
+            disconnect();
+        };
+    }, [setErrorMessage]);
+
+    useEffect(() => {
+        if (!isConnectedToServer || !sessionId) return;
+
+        console.log(`Subscribing to session-specific topics for session: ${sessionId}`);
+
+        const initialStateSubscription = subscribe<GameSessionState>(
+            `/user/queue/session/${sessionId}/state`, 
+            (state) => {
+                console.log('Received initial game state:', state);
+                dispatch({ type: 'SET_INITIAL_STATE', payload: state });
+            }
+        );
+
+        const updatesSubscription = subscribe<GameUpdatePayload<any>>(
+            `/topic/session/${sessionId}/game-updates`, 
+            (update) => {
+                console.log('Received game update:', update);
+
+                setErrorMessage('');
+
+                switch (update.actionType) {
+                    case 'entity_moved':
+                        dispatch({ type: 'UPDATE_ENTITY_POSITION', payload: update.payload as EntityMovedPayload });
+                        break;
+                    case 'entity_stats_updated':
+                        dispatch({ type: 'UPDATE_ENTITY_HP', payload: update.payload as DamageTakenPayload });
+                        break;
+                    case 'player_joined':
+                        dispatch({ type: 'ADD_NEW_ENTITY', payload: update.payload as PlayerClientState });
+                        break;
+                    case 'player_left':
+                        dispatch({ type: 'REMOVE_ENTITY', payload: update.payload as PlayerLeftPayload });
+                        break;
+                    case 'combat_ended':
+                        const combatEndPayload = update.payload as CombatEndedPayload;
+                        alert(`Combat ended! Outcome: ${combatEndPayload.outcome}`);
+                        break;
+                }
+            }
+        );
+        publish('/app/join-session', {
+            sessionId: sessionId,
+            characterId: 'warrior_1'
+        });
+
+        return () => {
+            initialStateSubscription?.unsubscribe();
+            updatesSubscription?.unsubscribe();
+        };
+
+    }, [sessionId, isConnectedToServer, dispatch, setErrorMessage]);
+
+
+    const handleCreateGame = () => {
+        if (isConnectedToServer) {
+            setErrorMessage('');
+            publish('/app/create-session', { levelType: 'EASY' });
+        } else {
+            setErrorMessage('Not connected to the server.');
+        }
+    };
+
+    const handleJoinGame = () => {
+        if (isConnectedToServer && joinSessionId) {
+            setErrorMessage('');
+            setSessionId(joinSessionId);
+        } else {
+            setErrorMessage('Not connected or Session ID is empty.');
+        }
+    };
+
+    return (
+        <div style={{ 
+            position: 'relative',
+            padding: '20px', 
+            fontFamily: 'system-ui, sans-serif', 
+            maxWidth: '800px', 
+            margin: '0 auto' 
+        }}>
+            <div style={{
+                position: 'absolute',
+                top: '10px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 1000,
+                width: '90%',
+                maxWidth: '600px',
+                opacity: errorMessage ? 1 : 0,
+                visibility: errorMessage ? 'visible' : 'hidden',
+                transition: 'opacity 0.3s ease-in-out, visibility 0.3s ease-in-out',
+            }}>
+                {errorMessage && (
+                    <p style={{ 
+                        color: 'white', 
+                        backgroundColor: '#c82333', 
+                        padding: '12px', 
+                        borderRadius: '5px',
+                        margin: 0,
+                        boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                        textAlign: 'center',
+                    }}>
+                        <strong>Error:</strong> {errorMessage}
+                    </p>
+                )}
+            </div>
+            
+            <header style={{ marginBottom: '20px', borderBottom: '1px solid #ccc', paddingBottom: '10px' }}>
+                <h1>Dungeon Crawler Prototype</h1>
+                <p style={{ margin: '8px 0' }}>
+                    Connection Status: 
+                    <span style={{ 
+                        color: isConnectedToServer ? '#28a745' : '#dc3545', 
+                        fontWeight: 'bold',
+                        marginLeft: '8px' 
+                    }}>
+                        {isConnectedToServer ? 'Connected' : 'Disconnected'}
+                    </span>
+                </p>
+            </header>
+
+            <main>
+                {!sessionId ? (
+                    <div id="lobby">
+                        <h2>Lobby</h2>
+                        <p>Create a new game or join an existing one using a Session ID.</p>
+                        
+                        <div style={{ marginBottom: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>
+                            <h3>Create a New Game</h3>
+                            <button 
+                                onClick={handleCreateGame} 
+                                disabled={!isConnectedToServer}
+                                style={{ padding: '10px 15px', fontSize: '16px', cursor: 'pointer', border: '1px solid #007bff', backgroundColor: '#007bff', color: 'white', borderRadius: '5px' }}
+                            >
+                                Create Game (Easy)
+                            </button>
+                        </div>
+
+                        <div style={{ padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>
+                            <h3>Join an Existing Game</h3>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Enter Session ID to join"
+                                    value={joinSessionId}
+                                    onChange={(e) => setJoinSessionId(e.target.value)}
+                                    style={{ padding: '10px', fontSize: '16px', marginRight: '10px', flexGrow: 1, border: '1px solid #ccc', borderRadius: '5px' }}
+                                />
+                                <button 
+                                    onClick={handleJoinGame} 
+                                    disabled={!isConnectedToServer || !joinSessionId}
+                                    style={{ padding: '10px 15px', fontSize: '16px', cursor: 'pointer', border: '1px solid #28a745', backgroundColor: '#28a745', color: 'white', borderRadius: '5px' }}
+                                >
+                                    Join Game
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                
+                    <div id="game-session">
+                        <h2>Game Session ID: <span style={{ fontFamily: 'monospace', backgroundColor: '#eee', padding: '2px 6px', borderRadius: '3px' }}>{sessionId}</span></h2>
+                        {gameState.mapState && gameState.mapState.width > 0 ? (
+                            <>
+                                <p>Click on the map to move your character. Click on another character to attack.</p>
+                                
+                                <div style={{ 
+                                    border: '2px solid black', 
+                                    display: 'inline-block', 
+                                    marginTop: '10px',
+                                    lineHeight: 0
+                                }}>
+                                    <GameCanvas />
+                                </div>
+                            </>
+                        ) : (
+                            <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>
+                                <p style={{ margin: 0, fontWeight: 'bold' }}>Connecting to session and loading map...</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </main>
+        </div>
+    );
+};
+
+const App: FC = () => {
+    return (
+        <GameProvider>
+            <Game />
+        </GameProvider>
+    );
+};
+
+export default App;

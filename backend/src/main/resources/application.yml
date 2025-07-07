@@ -10,3 +10,7 @@ game:
     default-map-width: 10
     default-map-height: 10
     default-attack-cost: 2
+logging:
+  level:
+    org.springframework.messaging: TRACE
+    org.springframework.web.socket: TRACE

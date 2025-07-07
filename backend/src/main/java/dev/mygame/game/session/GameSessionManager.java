@@ -30,10 +30,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class GameSessionManager implements GameSessionEndListener {
     public Map<String, GameSession> activeSessions;
 
-    private final SimpMessagingTemplate messagingTemplate; // Для передачи в GameSession
-    private final GameSettings gameSettings; // Общие настройки
-    private final MapGenerator mapGenerator; // **Вот он!**
-    private final GameDataLoader gameDataLoader; // Нужен для загрузки DungeonTemplate
+    private final SimpMessagingTemplate messagingTemplate;
+    private final GameSettings gameSettings;
+    private final MapGenerator mapGenerator;
+    private final GameDataLoader gameDataLoader
 
     private final GameSessionMapper gameSessionMapper;
     private final EntityMapper entityMapper;
@@ -45,25 +45,23 @@ public class GameSessionManager implements GameSessionEndListener {
         this.gameSessionMapper = gameSessionMapper;
         this.entityMapper = entityMapper;
         this.entityActionMapper = entityActionMapper;
-        this.activeSessions = new ConcurrentHashMap<>(); // Используем ConcurrentHashMap
+        this.activeSessions = new ConcurrentHashMap<>();
         this.messagingTemplate = messagingTemplate;
         this.gameSettings = gameSettings;
-        this.mapGenerator = mapGenerator; // Сохраняем внедренный MapGenerator
-        this.gameDataLoader = gameDataLoader; // Сохраняем внедренный GameDataLoader
+        this.mapGenerator = mapGenerator;
+        this.gameDataLoader = gameDataLoader;
     }
 
     @PostConstruct
     public void createTestSessionOnStartup() {
         System.out.println(">>> Creating a test game session on application startup...");
-        // Вызываем ваш метод создания сессии с пустыми параметрами
-        String testSessionId = createSession(); // Используем упрощенный метод
+        String testSessionId = createSession();
         System.out.println("=================================================");
         System.out.println(">>> TEST SESSION CREATED. ID: " + testSessionId);
         System.out.println(">>> Use this ID on the frontend to join the game.");
         System.out.println("=================================================");
     }
 
-    //public String createSession(GameParametersRequest gameParametersRequest) {
     public String createSession() {
         String sessionId = UUID.randomUUID().toString();
         GameMap gameMap = mapGenerator.generateMap();
@@ -73,26 +71,23 @@ public class GameSessionManager implements GameSessionEndListener {
 
         GameSession gameSession = GameSession.builder()
                 .sessionID(sessionId)
-                .gameMap(gameMap) // Передаем сгенерированную карту
-                .gameSettings(this.gameSettings) // Передаем общие настройки
-                .messagingTemplate(this.messagingTemplate) // Передаем messagingTemplate
-                .entities(initialEntities) // TODO: Убедитесь, что GameSession Builder принимает Map<String, Entity> entities
-                .gameObjects(initialGameObjects) // TODO: Убедитесь, что GameSession Builder принимает Map<String, GameObject> gameObjects
-                // TODO: Другие поля GameSession, если нужны (например, список начальных игроков как Player объектов, а не просто Entity)
-                .build(); // Завершаем сборку объекта
+                .gameMap(gameMap)
+                .gameSettings(this.gameSettings)
+                .messagingTemplate(this.messagingTemplate)
+                .entities(initialEntities)
+                .gameObjects(initialGameObjects)
+                .build();
         gameSession.addGameSessionEndListener(this);
 
-        // 5. TODO: Добавить игроков (Player сущностей) в GameSession, если они еще не добавлены в initialEntities
-        // Например, если Player объекты создаются здесь по userIds из запроса
+        // TODO: Добавить игроков (Player сущностей) в GameSession, если они еще не добавлены в initialEntities
         // gameSession.addPlayer(userId, ...); // Метод в GameSession
 
-        // 6. Добавить новую сессию в Map активных сессий
+        // Добавить новую сессию в Map активных сессий
         activeSessions.put(sessionId, gameSession);
 
-        // 7. TODO: Возможно, выполнить дополнительные действия после создания сессии
-        // Например, разослать сообщение клиентам о том, что сессия создана и готова к присоединению
+        // TODO: Возможно, выполнить дополнительные действия после создания сессии
 
-        return sessionId; // Возвращаем ID созданной сессии
+        return sessionId;
     }
 
     public void joinPlayer(String userId, String sessionId, String webSocketSessionId) {
@@ -108,7 +103,7 @@ public class GameSessionManager implements GameSessionEndListener {
 
          if (userAlreadyInSession) {
              // TODO: Обработать случай переподключения или ошибки (пользователь уже есть)
-             // Возможно, найти существующего игрока, обновить его websocketSessionId и отправить состояние.
+             // найти существующего игрока, обновить его websocketSessionId и отправить состояние.
              //throw new IllegalArgumentException("User " + userId + " is already in session " + sessionId);
          }
 
@@ -121,8 +116,9 @@ public class GameSessionManager implements GameSessionEndListener {
         int baseDefense = 5;
         int baseInitiative = 10;
         int baseMaxAp = 6;
-        EntityState initialState = EntityState.EXPLORING; // Игрок присоединяется в режиме исследования
-//        List<DeathListener> deathListeners = new ArrayList<>(); // Начальный список слушателей смерти (будет добавлен CombatInstance)
+        int baseAttackRange = 1;
+        EntityState initialState = EntityState.EXPLORING;
+//        List<DeathListener> deathListeners = new ArrayList<>();
 //        List<Item> initialInventory = new ArrayList<>();
 
         Player player = Player.builder()
@@ -135,34 +131,38 @@ public class GameSessionManager implements GameSessionEndListener {
                 .initiative(baseInitiative)
                 .maxAP(baseMaxAp)
                 .currentAP(baseMaxAp)
+                .attackRange(baseAttackRange)
                 .state(initialState)
-                .userId(userId) // Устанавливаем поля userId и websocketSessionId
+                .userId(userId)
                 .websocketSessionId(webSocketSessionId)
                 .build();
         gameSession.addEntity(player);
 
         messagingTemplate.convertAndSendToUser(
-                webSocketSessionId,
-                WebSocketDestinations.SESSION_STATE_QUEUE,
+                userId,
+                WebSocketDestinations.SESSION_STATE_QUEUE.replace("{sessionId}", gameSession.getSessionID()),
                 gameSessionMapper.toGameSessionState(gameSession, userId)
         );
 
-        gameSession.publishUpdate("PLAYER_JOINED", entityMapper.toPlayerClientState(player));
+        gameSession.publishUpdate("player_joined", entityMapper.toPlayerClientState(player));
     }
 
     public void handlePlayerAction(String sessionId, String websocketSessionId, PlayerAction playerAction) {
         GameSession gameSession = activeSessions.get(sessionId);
-        if (gameSession == null) {
+        if (gameSession == null)
             throw new IllegalArgumentException("Session not found: " + sessionId);
-        }
+
         Player actingPlayer = gameSession.getPlayerByWebsocketSessionId(websocketSessionId);
+
+        if(actingPlayer == null)
+            throw new IllegalArgumentException("Player not found.");
 
         gameSession.handleEntityAction(actingPlayer.getId(), entityActionMapper.toEntityAction(playerAction));
     }
 
     @Override
     public void onGameSessionEnd(GameSession session) {
-        boolean removed = this.activeSessions.remove(session.getSessionID(), session); // Удаляем сессию по ID и проверяем, что удалили нужный объект
+        boolean removed = this.activeSessions.remove(session.getSessionID(), session);
         if (removed) {
             System.out.println("Game Session " + session.getSessionID() + " ended with outcome: ");
             // TODO: Возможно, разослать сообщение всем клиентам, которые были в этой сессии, о ее завершении

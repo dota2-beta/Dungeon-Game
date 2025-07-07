@@ -40,15 +40,18 @@ public class GameMap {
     }
 
     public List<Point> findPath(Point start, Point target) {
-        if(!isPassable(start))
-            return null;
-        if(!isPassable(target))
-            return null;
-        if(start == target)
+        if (!isPassable(target)) {
+            return new ArrayList<>();
+        }
+        if (start.equals(target)) {
             return Collections.singletonList(start);
+        }
 
-        PriorityQueue<AStarNode> openSet = new PriorityQueue<>(Comparator.comparing(AStarNode::getFCost));
-        Set<AStarNode> closedCells = new HashSet<>();
+        final int ASTAR_HV_COST = 10;
+        final int ASTAR_DIAG_COST = 14;
+
+        PriorityQueue<AStarNode> openSet = new PriorityQueue<>(Comparator.comparingInt(AStarNode::getFCost));
+        Set<Point> closedSet = new HashSet<>();
 
         java.util.Map<Point, AStarNode> allNodes = new HashMap<>();
 
@@ -59,45 +62,51 @@ public class GameMap {
         openSet.add(startNode);
         allNodes.put(start, startNode);
 
-        while(!openSet.isEmpty()) {
+        while (!openSet.isEmpty()) {
             AStarNode currentNode = openSet.poll();
 
-            if(currentNode.getPoint().equals(target))
+            if (currentNode.getPoint().equals(target)) {
                 return reconstructPath(currentNode);
+            }
 
-            closedCells.add(currentNode);
-            for(int x = -1; x <= 1; ++x)
-                for(int y = -1; y <= 1; ++y) {
-                    if(x == 0 && y == 0)
-                        continue;
-                    Point newPoint = new Point(currentNode.getPoint().getX() + x, currentNode.getPoint().getY() + y);
+            closedSet.add(currentNode.getPoint());
 
-                    if(!isValid(newPoint))
+            for (int x = -1; x <= 1; ++x) {
+                for (int y = -1; y <= 1; ++y) {
+                    if (x == 0 && y == 0) {
                         continue;
+                    }
+                    Point neighborPoint = new Point(currentNode.getPoint().getX() + x, currentNode.getPoint().getY() + y);
 
-                    AStarNode newNode = allNodes.get(newPoint);
-                    if(newNode != null && closedCells.contains(newNode))
+                    if (!isValid(neighborPoint) || closedSet.contains(neighborPoint)) {
                         continue;
+                    }
 
                     int moveCost = (x == 0 || y == 0) ? ASTAR_HV_COST : ASTAR_DIAG_COST;
-                    int newGConst = currentNode.getGCost() + moveCost;
+                    int tentativeGCost = currentNode.getGCost() + moveCost;
 
-                    if(newNode == null) {
-                        newNode = new AStarNode(newPoint, currentNode, newGConst);
-                        newNode.calculateHeuristic(target);
-                        newNode.calculateFCost();
-                        allNodes.put(newPoint, newNode);
-                        openSet.add(newNode);
-                    } else if(newGConst < newNode.getGCost()) {
-                        newNode.setGCost(newGConst);
-                        newNode.setParent(currentNode);
-                        newNode.calculateFCost();
+                    AStarNode neighborNode = allNodes.get(neighborPoint);
 
-                        openSet.remove(newNode);
-                        openSet.add(newNode);
+                    if (neighborNode == null || tentativeGCost < neighborNode.getGCost()) {
+                        if (neighborNode == null) {
+                            neighborNode = new AStarNode(neighborPoint);
+                            allNodes.put(neighborPoint, neighborNode);
+                        }
+
+                        neighborNode.setParent(currentNode);
+                        neighborNode.setGCost(tentativeGCost);
+                        neighborNode.calculateHeuristic(target);
+                        neighborNode.calculateFCost();
+
+                        if (openSet.contains(neighborNode)) {
+                            openSet.remove(neighborNode);
+                        }
+                        openSet.add(neighborNode);
                     }
                 }
+            }
         }
+
         return new ArrayList<>();
     }
 
@@ -116,6 +125,12 @@ public class GameMap {
         }
     }
 
+    public int getDistance(Point p1, Point p2) {
+        int dx = Math.abs(p1.getX() - p2.getX());
+        int dy = Math.abs(p1.getY() - p2.getY());
+        return Math.max(dx, dy);
+    }
+
     private List<Point> reconstructPath(AStarNode node) {
         List<Point> path = new ArrayList<>();
 
@@ -125,7 +140,7 @@ public class GameMap {
             currentNode = currentNode.getParent();
         }
         Collections.reverse(path);
-        path.remove(0);
+        //path.remove(0);
         return path;
     }
 

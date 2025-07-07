@@ -1,5 +1,6 @@
 package dev.mygame.dto;
 
+import dev.mygame.game.enums.EntityState;
 import dev.mygame.game.model.map.Point;
 import lombok.Data;
 
@@ -10,6 +11,7 @@ public class EntityClientState {
     public Point position;
     public int currentHp;
     public int maxHp;
-    public String state;
+    public EntityState state;
     public String type; // игрок или монстр
+    public boolean isDead;
 }

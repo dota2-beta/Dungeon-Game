@@ -106,7 +106,7 @@ public class CombatInstance implements DeathListener {
                     entity.setState(EntityState.EXPLORING);
                 }
             } else if(outcome == CombatOutcome.MONSTERS_WON) {
-                //ну монстры выиграли, мб похилить их, вернуть на свои позиции..или ниче не делать
+                // монстры выиграли, мб похилить их, вернуть на свои позиции..или ничего не делать
             } else if(outcome == CombatOutcome.DRAW) {
                 //мб очистка какая-то
             }

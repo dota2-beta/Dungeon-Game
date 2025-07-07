@@ -10,7 +10,7 @@ import java.util.Map;
 @Data
 public class GameSessionState {
     public String sessionId;
-    public String yourPlayerId; // ID сущности, которой управляет клиент
+    public String yourPlayerId; // id сущности, которой управляет клиент
     public MapClientState mapState;
     public List<EntityClientState> entities;
 }

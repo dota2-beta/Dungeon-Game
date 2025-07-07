@@ -17,6 +17,17 @@ public interface EntityMapper {
     @Mapping(target = "monsterType", constant = "MONSTER")
     MonsterClientState toMonsterClientState(Monster monster);
 
-    @Mapping(target = "type", constant = "ENTITY")
-    EntityClientState toEntityClientState(Entity entity);
+    default EntityClientState toClientState(Entity entity) {
+        if (entity == null) {
+            return null;
+        }
+
+        if (entity instanceof Player) {
+            return toPlayerClientState((Player) entity);
+        } else if (entity instanceof Monster) {
+            return toMonsterClientState((Monster) entity);
+        }
+
+        throw new IllegalArgumentException("Unknown entity type: " + entity.getClass().getName());
+    }
 }
