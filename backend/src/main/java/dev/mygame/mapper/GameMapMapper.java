@@ -1,9 +1,9 @@
 package dev.mygame.mapper;
 
-import dev.mygame.dto.MapClientState;
-import dev.mygame.game.enums.TileType;
-import dev.mygame.game.model.map.GameMap;
-import dev.mygame.game.model.map.Point;
+import dev.mygame.dto.websocket.response.MapState;
+import dev.mygame.enums.TileType;
+import dev.mygame.domain.model.map.GameMap;
+import dev.mygame.domain.model.map.Point;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -11,8 +11,8 @@ import java.util.List;
 
 @Component
 public class GameMapMapper {
-    public MapClientState toGameMapState(GameMap gameMap) {
-        MapClientState mapClientState = new MapClientState();
+    public MapState toGameMapState(GameMap gameMap) {
+        MapState mapClientState = new MapState();
         mapClientState.setWidth(gameMap.getWidth());
         mapClientState.setHeight(gameMap.getHeight());
 

@@ -1,31 +1,31 @@
 package dev.mygame.mapper;
 
-import dev.mygame.dto.EntityClientState;
-import dev.mygame.dto.MonsterClientState;
-import dev.mygame.dto.PlayerClientState;
-import dev.mygame.game.model.Entity;
-import dev.mygame.game.model.Monster;
-import dev.mygame.game.model.Player;
+import dev.mygame.dto.websocket.response.PlayerState;
+import dev.mygame.dto.websocket.response.EntityState;
+import dev.mygame.dto.websocket.response.MonsterState;
+import dev.mygame.domain.model.Entity;
+import dev.mygame.domain.model.Monster;
+import dev.mygame.domain.model.Player;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface EntityMapper {
     @Mapping(target = "type", constant = "PLAYER")
-    PlayerClientState toPlayerClientState(Player player);
+    PlayerState toPlayerState(Player player);
 
     @Mapping(target = "monsterType", constant = "MONSTER")
-    MonsterClientState toMonsterClientState(Monster monster);
+    MonsterState toMonsterState(Monster monster);
 
-    default EntityClientState toClientState(Entity entity) {
+    default EntityState toState(Entity entity) {
         if (entity == null) {
             return null;
         }
 
         if (entity instanceof Player) {
-            return toPlayerClientState((Player) entity);
+            return toPlayerState((Player) entity);
         } else if (entity instanceof Monster) {
-            return toMonsterClientState((Monster) entity);
+            return toMonsterState((Monster) entity);
         }
 
         throw new IllegalArgumentException("Unknown entity type: " + entity.getClass().getName());

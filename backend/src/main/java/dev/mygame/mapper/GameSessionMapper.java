@@ -1,19 +1,13 @@
 package dev.mygame.mapper;
 
-import dev.mygame.dto.EntityClientState;
-import dev.mygame.dto.GameSessionState;
-import dev.mygame.dto.MapClientState;
-import dev.mygame.game.enums.TileType;
-import dev.mygame.game.model.Entity;
-import dev.mygame.game.model.Player;
-import dev.mygame.game.model.map.GameMap;
-import dev.mygame.game.model.map.Point;
-import dev.mygame.game.session.GameSession;
+import dev.mygame.dto.websocket.response.EntityState;
+import dev.mygame.dto.websocket.response.GameSessionState;
+import dev.mygame.domain.model.Entity;
+import dev.mygame.domain.model.Player;
+import dev.mygame.domain.session.GameSession;
 import lombok.RequiredArgsConstructor;
-import org.mapstruct.Mapper;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -37,8 +31,8 @@ public class GameSessionMapper {
         if(session.getGameMap() != null)
             gameSessionState.setMapState(gameMapMapper.toGameMapState(session.getGameMap()));
 
-        List<EntityClientState> clientStates = session.getEntities().values().stream()
-                .map(entityMapper::toClientState)
+        List<EntityState> clientStates = session.getEntities().values().stream()
+                .map(entityMapper::toState)
                 .filter(Objects::nonNull)
                 .toList();
         gameSessionState.setEntities(clientStates);
