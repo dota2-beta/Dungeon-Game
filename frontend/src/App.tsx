@@ -5,18 +5,20 @@ import { GameProvider, useGame } from './context/GameContext';
 import type { 
     GameSessionState, 
     GameUpdatePayload, 
-    EntityMovedPayload, 
-    DamageTakenPayload, 
-    CombatEndedPayload, 
+    EntityMovedEvent, 
+    EntityStatsUpdatedEvent, 
+    CombatEndedEvent, 
     PlayerJoinedPayload,
     PlayerLeftPayload,
-    PlayerClientState
+    PlayerState,
+    EntityAttackEvent,
+    ErrorEvent
 } from './types/dto';
 import GameCanvas from './components/GameCanvas';
+import PlayerHUD from './components/PlayerHUD';
 import type { IFrame } from '@stomp/stompjs';
 
 const Game: FC = () => {
-    console.log('--- Game component is rendering/re-rendering ---');
     const { gameState, dispatch, setErrorMessage } = useGame();
     const { errorMessage } = useGame();
 
@@ -53,11 +55,13 @@ const Game: FC = () => {
                 }
             );
 
-            subscribe<{ error: string }>(
+            subscribe<ErrorEvent>(
                 '/user/queue/errors',
                 (errorPayload) => {
-                    console.error("Received an error from the server:", errorPayload.error);
-                    setErrorMessage(errorPayload.error || "An unknown error occurred.");
+                    console.error(
+                        `Received error from server. Code: [${errorPayload.errorCode || 'NONE'}], Message: "${errorPayload.message}"`
+                    );
+                    setErrorMessage(errorPayload.message || "An unknown error occurred.");
                 }
             );
         };
@@ -97,24 +101,28 @@ const Game: FC = () => {
 
                 switch (update.actionType) {
                     case 'entity_moved':
-                        dispatch({ type: 'UPDATE_ENTITY_POSITION', payload: update.payload as EntityMovedPayload });
+                        dispatch({ type: 'UPDATE_ENTITY_POSITION', payload: update.payload as EntityMovedEvent });
+                        break;
+                    case 'entity_attack':
+                        dispatch({ type: 'ENTITY_ATTACKED', payload: update.payload as EntityAttackEvent });
                         break;
                     case 'entity_stats_updated':
-                        dispatch({ type: 'UPDATE_ENTITY_HP', payload: update.payload as DamageTakenPayload });
+                        dispatch({ type: 'ENTITY_TOOK_DAMAGE', payload: update.payload as EntityStatsUpdatedEvent });
                         break;
                     case 'player_joined':
-                        dispatch({ type: 'ADD_NEW_ENTITY', payload: update.payload as PlayerClientState });
+                        dispatch({ type: 'ADD_NEW_ENTITY', payload: update.payload as PlayerState });
                         break;
                     case 'player_left':
                         dispatch({ type: 'REMOVE_ENTITY', payload: update.payload as PlayerLeftPayload });
                         break;
                     case 'combat_ended':
-                        const combatEndPayload = update.payload as CombatEndedPayload;
+                        const combatEndPayload = update.payload as CombatEndedEvent;
                         alert(`Combat ended! Outcome: ${combatEndPayload.outcome}`);
                         break;
                 }
             }
         );
+        
         publish('/app/join-session', {
             sessionId: sessionId,
             characterId: 'warrior_1'
@@ -238,16 +246,17 @@ const Game: FC = () => {
                         <h2>Game Session ID: <span style={{ fontFamily: 'monospace', backgroundColor: '#eee', padding: '2px 6px', borderRadius: '3px' }}>{sessionId}</span></h2>
                         {gameState.mapState && gameState.mapState.width > 0 ? (
                             <>
-                                <p>Click on the map to move your character. Click on another character to attack.</p>
-                                
                                 <div style={{ 
+                                    position: 'relative',
                                     border: '2px solid black', 
                                     display: 'inline-block', 
                                     marginTop: '10px',
                                     lineHeight: 0
                                 }}>
                                     <GameCanvas />
+                                    <PlayerHUD />
                                 </div>
+                                <p>Click on the map to move your character. Click on another character to attack.</p>
                             </>
                         ) : (
                             <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>

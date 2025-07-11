@@ -1,51 +1,39 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import { GameRenderer } from './GameRenderer';
-import type { EntityClientState } from '../types/dto';
 
 const GameCanvas: React.FC = () => {
     const canvasRef = useRef<HTMLDivElement>(null);
     const rendererRef = useRef<GameRenderer | null>(null);
-    const { gameState } = useGame();
+    const { gameState, dispatch } = useGame();
     
-    // Состояние для анимации урона
-    const [damagedEntityId, setDamagedEntityId] = useState<string | null>(null);
-    const prevEntitiesRef = useRef<EntityClientState[]>([]);
-
-    // Основной useEffect для создания и обновления рендерера
     useEffect(() => {
-        // Создаем рендерер один раз при монтировании
         if (canvasRef.current && !rendererRef.current) {
             rendererRef.current = new GameRenderer(canvasRef.current);
         }
         
-        // Вызываем update при каждом изменении gameState
         if (rendererRef.current) {
-            rendererRef.current.update(gameState, damagedEntityId);
+            rendererRef.current.update(gameState); 
         }
+    }, [gameState]);
 
-        // Функция очистки при размонтировании
-        return () => {
-            if (rendererRef.current) {
-                // Уничтожаем рендерер, только если компонент действительно размонтируется
-            }
-        };
-    }, [gameState, damagedEntityId])
-
-    // Отдельный useEffect для отслеживания атак и запуска анимации
     useEffect(() => {
-        gameState.entities.forEach(currentEntity => {
-            const prevEntity = prevEntitiesRef.current.find(p => p.id === currentEntity.id);
-            if (prevEntity && currentEntity.currentHp < prevEntity.currentHp) {
-                setDamagedEntityId(currentEntity.id);
-                setTimeout(() => setDamagedEntityId(null), 200);
+        const attackInfo = gameState.lastAttack;
+        const damageInfo = gameState.lastDamage;
+
+        if (attackInfo && damageInfo && attackInfo.payload.targetEntityId === damageInfo.payload.targetEntityId) {
+            if (Math.abs(attackInfo.timestamp - damageInfo.timestamp) < 500) {
+                const renderer = rendererRef.current;
+                if (renderer) {
+                    renderer.playAttackAnimation(attackInfo.payload.attackerEntityId, attackInfo.payload.targetEntityId);
+                    renderer.showDamageNumber(damageInfo.payload);
+                    renderer.flashEntity(damageInfo.payload.targetEntityId, 400);
+                }
+                dispatch({ type: 'CLEAR_COMBAT_ANIMATIONS' });
             }
-        });
-        prevEntitiesRef.current = gameState.entities;
-    }, [gameState.entities]);
+        }
+    }, [gameState.lastAttack, gameState.lastDamage, dispatch]);
 
-
-    // При размонтировании компонента GameCanvas полностью уничтожаем Pixi
     useEffect(() => {
         return () => {
             rendererRef.current?.destroy();
@@ -53,7 +41,7 @@ const GameCanvas: React.FC = () => {
         }
     }, []);
 
-    return <div ref={canvasRef} />;
+    return <div ref={canvasRef} style={{ cursor: 'default' }} />;
 };
 
 export default GameCanvas;
