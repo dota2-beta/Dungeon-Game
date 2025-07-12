@@ -16,10 +16,9 @@ public class GameMapMapper {
         mapClientState.setWidth(gameMap.getWidth());
         mapClientState.setHeight(gameMap.getHeight());
 
-        //МБ НАДО ПОМЕНЯТЬ X и Y МЕСТАМИ
         List<TileType> tileTypes = new ArrayList<>();
-        for(int i = 0; i < gameMap.getWidth(); i++) {
-            for(int j = 0; j < gameMap.getHeight(); j++) {
+        for(int j = 0; j < gameMap.getHeight(); j++) {
+            for(int i = 0; i < gameMap.getWidth(); i++) {
                 tileTypes.add(gameMap.getTile(new Point(i, j)).getType());
             }
         }

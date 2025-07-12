@@ -55,7 +55,7 @@ public class GameSessionManager implements GameSessionEndListener {
 
     public String createSession() {
         String sessionId = UUID.randomUUID().toString();
-        GameMap gameMap = mapGenerator.generateMap();
+        GameMap gameMap = mapGenerator.generateDungeon();
 
         Map<String, Entity> initialEntities = new ConcurrentHashMap<>();
         Map<String, GameObject> initialGameObjects = new ConcurrentHashMap<>();
@@ -100,7 +100,9 @@ public class GameSessionManager implements GameSessionEndListener {
 
         String entityId = UUID.randomUUID().toString();
 
-        Point startPosition = new Point(gameSession.getGameMap().getWidth() / 2, gameSession.getGameMap().getHeight() / 2);
+        //Point startPosition = new Point(gameSession.getGameMap().getWidth() / 2, gameSession.getGameMap().getHeight() / 2);
+
+        Point startPosition = gameSession.getGameMap().getSpawnPoint();
 
         int baseMaxHp = 100;
         int baseAttack = 10;

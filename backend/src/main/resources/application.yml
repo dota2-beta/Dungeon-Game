@@ -10,6 +10,14 @@ game:
     default-map-width: 10
     default-map-height: 10
     default-attack-cost: 2
+  map:
+    generation:
+      default-width: 50
+      default-height: 30
+      max-rooms: 15
+      min-rooms: 3
+      min-room-size: 6
+      max-room-size: 10
 logging:
   level:
     org.springframework.messaging: TRACE

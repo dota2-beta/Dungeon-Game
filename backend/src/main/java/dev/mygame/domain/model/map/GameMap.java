@@ -1,5 +1,6 @@
 package dev.mygame.domain.model.map;
 
+import dev.mygame.enums.TileType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -17,6 +18,8 @@ public class GameMap {
     private int width;
     private int height;
 
+    private Point spawnPoint;
+
     public GameMap(int width, int height) {
         this.width = width;
         this.height = height;
@@ -27,6 +30,16 @@ public class GameMap {
         if(!isWithinBounds(point))
             return null;
         return tiles[point.getX()][point.getY()];
+    }
+
+    public void setTile(Point point, TileType type) {
+        if (isWithinBounds(point)) {
+            if (tiles[point.getX()][point.getY()] != null) {
+                tiles[point.getX()][point.getY()].setType(type);
+            } else {
+                tiles[point.getX()][point.getY()] = new Tile(type, null);
+            }
+        }
     }
 
     public boolean isPassable(Point point) {
@@ -129,6 +142,14 @@ public class GameMap {
         int dx = Math.abs(p1.getX() - p2.getX());
         int dy = Math.abs(p1.getY() - p2.getY());
         return Math.max(dx, dy);
+    }
+
+    public void fill(TileType type) {
+        for(int i = 0; i < this.width; i++) {
+            for(int j = 0; j < this.height; j++) {
+                tiles[i][j] = new Tile(type, null);
+            }
+        }
     }
 
     private List<Point> reconstructPath(AStarNode node) {

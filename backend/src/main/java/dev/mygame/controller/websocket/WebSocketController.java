@@ -10,6 +10,8 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.security.Principal;
 import java.util.Map;
@@ -17,6 +19,8 @@ import java.util.Map;
 @Controller
 @RequiredArgsConstructor
 public class WebSocketController {
+    private static final Logger log = LoggerFactory.getLogger(WebSocketController.class);
+
     private final GameSessionManager gameSessionManager;
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -58,7 +62,13 @@ public class WebSocketController {
             );
             messagingTemplate.convertAndSendToUser(userId, "/queue/create-session-response", response); // Используем личный топик
         } catch (Exception e) {
-            // ... обработка ошибок ...
+            log.error("Error creating game session for user: {}", userId, e);
+
+            Map<String, String> errorResponse = Map.of(
+                    "status", "error",
+                    "message", "Failed to create session: " + e.getMessage()
+            );
+            messagingTemplate.convertAndSendToUser(userId, "/queue/create-session-response", errorResponse);
         }
     }
 
