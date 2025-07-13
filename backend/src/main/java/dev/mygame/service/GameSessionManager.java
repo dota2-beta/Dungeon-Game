@@ -1,21 +1,23 @@
 package dev.mygame.service;
 
 import dev.mygame.config.GameSettings;
+import dev.mygame.config.MapGenerationProperties;
 import dev.mygame.config.WebSocketDestinations;
+import dev.mygame.domain.model.map.GameMapHex;
+import dev.mygame.domain.model.map.Hex;
 import dev.mygame.dto.websocket.request.PlayerAction;
+import dev.mygame.dto.websocket.response.GameSessionStateDto;
 import dev.mygame.enums.EntityStateType;
 import dev.mygame.domain.model.Entity;
 import dev.mygame.domain.model.GameObject;
 import dev.mygame.domain.model.Player;
-import dev.mygame.domain.model.map.GameMap;
-import dev.mygame.domain.model.map.Point;
 import dev.mygame.domain.event.GameSessionEndListener;
 import dev.mygame.data.GameDataLoader;
 import dev.mygame.domain.session.GameSession;
 import dev.mygame.mapper.EntityActionMapper;
 import dev.mygame.mapper.EntityMapper;
 import dev.mygame.mapper.GameSessionMapper;
-import jakarta.annotation.PostConstruct;
+import dev.mygame.mapper.context.MappingContext;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +35,7 @@ public class GameSessionManager implements GameSessionEndListener {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final GameSettings gameSettings;
+    private final MapGenerationProperties props;
     private final MapGenerator mapGenerator;
     private final GameDataLoader gameDataLoader;
 
@@ -41,8 +44,9 @@ public class GameSessionManager implements GameSessionEndListener {
     private final EntityActionMapper entityActionMapper;
 
     @Autowired
-    public GameSessionManager(SimpMessagingTemplate messagingTemplate, GameSettings gameSettings,
+    public GameSessionManager(SimpMessagingTemplate messagingTemplate, GameSettings gameSettings, MapGenerationProperties props,
                               MapGenerator mapGenerator, GameDataLoader gameDataLoader, GameSessionMapper gameSessionMapper, EntityMapper entityMapper, EntityActionMapper entityActionMapper) {
+        this.props = props;
         this.gameSessionMapper = gameSessionMapper;
         this.entityMapper = entityMapper;
         this.entityActionMapper = entityActionMapper;
@@ -55,14 +59,15 @@ public class GameSessionManager implements GameSessionEndListener {
 
     public String createSession() {
         String sessionId = UUID.randomUUID().toString();
-        GameMap gameMap = mapGenerator.generateDungeon();
+        //GameMap gameMap = mapGenerator.generateDungeon();
+        GameMapHex gameMapHex = mapGenerator.generateHexBattleArena(props);
 
         Map<String, Entity> initialEntities = new ConcurrentHashMap<>();
         Map<String, GameObject> initialGameObjects = new ConcurrentHashMap<>();
 
         GameSession gameSession = GameSession.builder()
                 .sessionID(sessionId)
-                .gameMap(gameMap)
+                .gameMap(gameMapHex)
                 .gameSettings(this.gameSettings)
                 .messagingTemplate(this.messagingTemplate)
                 .entities(initialEntities)
@@ -100,9 +105,9 @@ public class GameSessionManager implements GameSessionEndListener {
 
         String entityId = UUID.randomUUID().toString();
 
-        //Point startPosition = new Point(gameSession.getGameMap().getWidth() / 2, gameSession.getGameMap().getHeight() / 2);
+        Hex startPosition = new Hex(0, 0);
 
-        Point startPosition = gameSession.getGameMap().getSpawnPoint();
+        //Point startPosition = gameSession.getGameMap().getSpawnPoint();
 
         int baseMaxHp = 100;
         int baseAttack = 10;
@@ -131,12 +136,7 @@ public class GameSessionManager implements GameSessionEndListener {
                 .build();
         gameSession.addEntity(player);
 
-        messagingTemplate.convertAndSendToUser(
-                userId,
-                WebSocketDestinations.SESSION_STATE_QUEUE.replace("{sessionId}", gameSession.getSessionID()),
-                gameSessionMapper.toGameSessionState(gameSession, userId)
-        );
-
+        sendInitialStateToPlayer(gameSession, userId);
         gameSession.publishUpdate("player_joined", entityMapper.toPlayerState(player));
     }
 
@@ -151,6 +151,21 @@ public class GameSessionManager implements GameSessionEndListener {
             throw new IllegalArgumentException("Player not found.");
 
         gameSession.handleEntityAction(actingPlayer.getId(), entityActionMapper.toEntityAction(playerAction));
+    }
+
+    public void sendInitialStateToPlayer(GameSession gameSession, String userId) {
+        MappingContext context = new MappingContext(
+                userId,
+                props.getBattleArenaRadius()
+        );
+
+        GameSessionStateDto stateDto = gameSessionMapper.toGameSessionState(gameSession, context);
+
+        messagingTemplate.convertAndSendToUser(
+                userId,
+                WebSocketDestinations.SESSION_STATE_QUEUE.replace("{sessionId}", gameSession.getSessionID()),
+                gameSessionMapper.toGameSessionState(gameSession, context)
+        );
     }
 
     @Override

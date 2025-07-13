@@ -1,10 +1,11 @@
 package dev.mygame.mapper;
 
-import dev.mygame.dto.websocket.response.EntityState;
-import dev.mygame.dto.websocket.response.GameSessionState;
+import dev.mygame.dto.websocket.response.EntityStateDto;
+import dev.mygame.dto.websocket.response.GameSessionStateDto;
 import dev.mygame.domain.model.Entity;
 import dev.mygame.domain.model.Player;
 import dev.mygame.domain.session.GameSession;
+import dev.mygame.mapper.context.MappingContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -17,26 +18,26 @@ public class GameSessionMapper {
     private final EntityMapper entityMapper;
     private final GameMapMapper gameMapMapper;
 
-    public GameSessionState toGameSessionState(GameSession session, String forUserId) {
-        GameSessionState gameSessionState = new GameSessionState();
-        gameSessionState.setSessionId(session.getSessionID());
+    public GameSessionStateDto toGameSessionState(GameSession session, MappingContext mappingContext) {
+        GameSessionStateDto gameSessionStateDto = new GameSessionStateDto();
+        gameSessionStateDto.setSessionId(session.getSessionID());
 
         String yourPlayerId = session.getEntities().values().stream()
-                .filter(en -> en instanceof Player && ((Player) en).getUserId().equals(forUserId))
+                .filter(en -> en instanceof Player && ((Player) en).getUserId().equals(mappingContext.getForUserId()))
                 .findFirst()
                 .map(Entity::getId)
                 .orElse(null);
-        gameSessionState.setYourPlayerId(yourPlayerId);
+        gameSessionStateDto.setYourPlayerId(yourPlayerId);
 
         if(session.getGameMap() != null)
-            gameSessionState.setMapState(gameMapMapper.toGameMapState(session.getGameMap()));
+            gameSessionStateDto.setMapState(gameMapMapper.toGameMapState(session.getGameMap(), mappingContext.getMapRadius()));
 
-        List<EntityState> clientStates = session.getEntities().values().stream()
+        List<EntityStateDto> clientStates = session.getEntities().values().stream()
                 .map(entityMapper::toState)
                 .filter(Objects::nonNull)
                 .toList();
-        gameSessionState.setEntities(clientStates);
+        gameSessionStateDto.setEntities(clientStates);
 
-        return gameSessionState;
+        return gameSessionStateDto;
     }
 }

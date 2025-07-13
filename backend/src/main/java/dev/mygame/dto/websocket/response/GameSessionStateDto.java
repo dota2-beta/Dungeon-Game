@@ -5,9 +5,9 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class GameSessionState {
+public class GameSessionStateDto {
     public String sessionId;
     public String yourPlayerId; // id сущности, которой управляет клиент
-    public MapState mapState;
-    public List<EntityState> entities;
+    public MapStateDto mapState;
+    public List<EntityStateDto> entities;
 }

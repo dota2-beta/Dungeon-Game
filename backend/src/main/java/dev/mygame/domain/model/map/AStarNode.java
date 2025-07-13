@@ -8,31 +8,29 @@ import java.util.Objects;
 @Data
 @AllArgsConstructor
 public class AStarNode {
-    private Point point;
+    private Hex hex;
     private AStarNode parent;
     private int gCost;
     private int hCost;
     private int fCost;
 
-    public AStarNode(Point point) {
-        this.point = point;
+    public AStarNode(Hex hex) {
+        this.hex = hex;
         this.parent = null;
         this.gCost = 0;
         this.hCost = 0;
         this.fCost = 0;
     }
 
-    public AStarNode(Point point, AStarNode parent, int gCost) {
-        this.point = point;
-        this.parent = parent;
-        this.gCost = gCost;
-        this.hCost = 0;
-        this.fCost = 0;
-    }
-
-    public void calculateHeuristic(Point finalPoint) {
-        this.hCost = Math.max(Math.abs(finalPoint.getX() - this.getPoint().getX()),
-                Math.abs(finalPoint.getY() - this.getPoint().getY())) * 10;
+    /**
+     * Вычисляет эвристику (hCost).
+     * Для гексов эвристика - это просто гексагональное расстояние.
+     * @param finalHex Целевой гекс.
+     */
+    public void calculateHeuristic(Hex finalHex) {
+        // Используем наш метод distanceTo. Умножаем на 10, чтобы работать с целыми числами,
+        // так как стоимость шага у нас тоже будет 10.
+        this.hCost = this.hex.distanceTo(finalHex) * 10;
     }
 
     public void calculateFCost() {
@@ -44,11 +42,11 @@ public class AStarNode {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         AStarNode aStarNode = (AStarNode) o;
-        return Objects.equals(point, aStarNode.point);
+        return Objects.equals(hex, aStarNode.hex);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(point);
+        return Objects.hash(hex);
     }
 }

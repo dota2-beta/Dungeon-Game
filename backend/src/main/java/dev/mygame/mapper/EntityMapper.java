@@ -1,8 +1,8 @@
 package dev.mygame.mapper;
 
-import dev.mygame.dto.websocket.response.PlayerState;
-import dev.mygame.dto.websocket.response.EntityState;
-import dev.mygame.dto.websocket.response.MonsterState;
+import dev.mygame.dto.websocket.response.MonsterStateDto;
+import dev.mygame.dto.websocket.response.PlayerStateDto;
+import dev.mygame.dto.websocket.response.EntityStateDto;
 import dev.mygame.domain.model.Entity;
 import dev.mygame.domain.model.Monster;
 import dev.mygame.domain.model.Player;
@@ -12,12 +12,14 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface EntityMapper {
     @Mapping(target = "type", constant = "PLAYER")
-    PlayerState toPlayerState(Player player);
+    @Mapping(source = "dead", target = "isDead")
+    PlayerStateDto toPlayerState(Player player);
 
     @Mapping(target = "monsterType", constant = "MONSTER")
-    MonsterState toMonsterState(Monster monster);
+    @Mapping(source = "dead", target = "isDead")
+    MonsterStateDto toMonsterState(Monster monster);
 
-    default EntityState toState(Entity entity) {
+    default EntityStateDto toState(Entity entity) {
         if (entity == null) {
             return null;
         }

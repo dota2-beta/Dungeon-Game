@@ -14,8 +14,4 @@ public class GameSettings {
     private double moveCostHv;
     private double moveCostDiag;
     private int defaultAttackCost;
-
-    private int defaultMapWidth;
-    private int defaultMapHeight;
-
 }

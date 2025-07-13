@@ -5,6 +5,6 @@ import lombok.EqualsAndHashCode;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
-public class MonsterState extends EntityState {
+public class MonsterStateDto extends EntityStateDto {
     public String monsterType;
 }

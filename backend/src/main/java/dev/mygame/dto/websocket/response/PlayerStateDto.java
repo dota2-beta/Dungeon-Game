@@ -5,6 +5,6 @@ import lombok.EqualsAndHashCode;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
-public class PlayerState extends EntityState {
+public class PlayerStateDto extends EntityStateDto {
     public String userId;
 }

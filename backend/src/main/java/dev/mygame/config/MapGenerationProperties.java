@@ -10,8 +10,7 @@ import org.springframework.context.annotation.Configuration;
 @Getter
 @Setter
 public class MapGenerationProperties {
-    private int defaultWidth;
-    private int defaultHeight;
+    private int battleArenaRadius;
     private int minRooms;
     private int maxRooms;
     private int minRoomSize;

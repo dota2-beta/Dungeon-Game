@@ -46,10 +46,11 @@ public class WebSocketController {
         gameSessionManager.handlePlayerAction(sessionId, websocketSessionId, action);
     }
 
-    @MessageMapping("/create-session") // Клиент отправляет сообщение на /app/create-session
+    @MessageMapping("/create-session")
     public void onCreateSession(SimpMessageHeaderAccessor headerAccessor, Principal principal) {
         String websocketSessionId = headerAccessor.getSessionId();
-        //временный userId, пока нет аутентификации
+
+        //временный userId пока нет аутентификации
         String userId = principal.getName();
         //String userId = websocketSessionId;
 

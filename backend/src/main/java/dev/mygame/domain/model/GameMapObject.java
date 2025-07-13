@@ -1,6 +1,6 @@
 package dev.mygame.domain.model;
 
-import dev.mygame.domain.model.map.Point;
+import dev.mygame.domain.model.map.Hex;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
@@ -10,5 +10,5 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor
 public abstract class GameMapObject {
     protected String id;
-    protected Point position;
+    protected Hex position;
 }

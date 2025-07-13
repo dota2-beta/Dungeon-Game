@@ -13,5 +13,4 @@ public class Player extends Entity {
     private List<Item> inventory;
     private String userId;
     private String websocketSessionId;
-
 }

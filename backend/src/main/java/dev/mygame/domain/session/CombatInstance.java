@@ -26,10 +26,10 @@ public class CombatInstance implements DeathListener {
 
     private List<CombatEndListener> endListeners;
 
-    public CombatInstance( String combatId
-                         , GameSession gameSession
-                         , List<Entity> initParticipants
-                         , String currentTurnEntityId ) {
+    public CombatInstance( String combatId,
+                           GameSession gameSession,
+                           List<Entity> initParticipants,
+                           String currentTurnEntityId) {
         this.combatId = combatId;
         this.gameSession = gameSession;
         this.team1 = new HashMap<>();
@@ -79,7 +79,7 @@ public class CombatInstance implements DeathListener {
 
         this.currentTurnEntityId = nextEntityId;
 
-        Entity currentEntity = gameSession.getEntities().get(this.currentTurnEntityId);
+        Entity currentEntity = this.gameSession.getEntities().get(this.currentTurnEntityId);
         if(currentEntity == null || !currentEntity.isAlive()) {
             startNextTurn();
             return; //не должно быть
@@ -90,7 +90,7 @@ public class CombatInstance implements DeathListener {
 
         updatePayload.put("combatId", this.combatId);
         updatePayload.put("currentTurnEntityId", this.currentTurnEntityId);
-        gameSession.publishUpdate("combatNextTurn", updatePayload);
+        this.gameSession.publishUpdate("combatNextTurn", updatePayload);
 
         if(currentEntity instanceof Monster) {
             return;

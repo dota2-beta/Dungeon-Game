@@ -6,17 +6,18 @@ import dev.mygame.config.WebSocketDestinations;
 import dev.mygame.domain.model.Entity;
 import dev.mygame.domain.model.GameObject;
 import dev.mygame.domain.model.Player;
+import dev.mygame.domain.model.map.*;
 import dev.mygame.dto.websocket.response.event.*;
 import dev.mygame.service.internal.DamageResult;
 import dev.mygame.enums.ActionType;
 import dev.mygame.enums.CombatOutcome;
 import dev.mygame.domain.event.CombatEndListener;
-import dev.mygame.domain.model.map.GameMap;
-import dev.mygame.domain.model.map.Point;
 import dev.mygame.domain.event.GameSessionEndListener;
 import dev.mygame.service.internal.EntityAction;
 import lombok.Builder;
 import lombok.Data;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.util.*;
@@ -30,9 +31,12 @@ public class GameSession implements CombatEndListener {
     private Map<String, Entity> entities;
     private Map<String, GameObject> gameObjects;
 
-    private GameMap gameMap;
+    private GameMapHex gameMap;
     private List<CombatInstance> activeCombats;
     private SimpMessagingTemplate messagingTemplate;
+
+    private static final Logger log = LoggerFactory.getLogger(GameSession.class);
+
 
     @Builder.Default
     private List<GameSessionEndListener> endListeners = new ArrayList<>();;
@@ -85,7 +89,7 @@ public class GameSession implements CombatEndListener {
         ActionType actionType = action.getActionType();
         switch (actionType) {
             case MOVE:
-                entityMove(entityId, action.getTargetPoint());
+                entityMove(entityId, action.getTargetHex());
                 break;
             case ATTACK:
                 entityAttack(entityId, action.getTargetId());
@@ -102,7 +106,7 @@ public class GameSession implements CombatEndListener {
         }
     }
 
-    private void entityMove(String entityId, Point targetPoint) {
+    private void entityMove(String entityId, Hex targetHex) {
         Entity entity = entities.get(entityId);
 
         if (!(entity instanceof Player)) {
@@ -111,6 +115,23 @@ public class GameSession implements CombatEndListener {
             return;
         }
         Player player = (Player) entity;
+
+        Tile targetTile = this.gameMap.getTile(targetHex);
+
+        if (player.getPosition().equals(targetHex)) {
+            sendErrorMessageToPlayer(player, "You are already here.", "ALREADY_AT_TARGET");
+            return;
+        }
+
+        if (targetTile == null || !targetTile.isPassable()) {
+            sendErrorMessageToPlayer(player, "You can't move there.", "TILE_NOT_PASSABLE");
+            return;
+        }
+
+        if (targetTile.isOccupied()) {
+            sendErrorMessageToPlayer(player, "This tile is occupied.", "TILE_OCCUPIED");
+            return;
+        }
 
 //        if(player.getPosition().equals(targetPoint)) {
 //            String message = "It's pointless.";
@@ -143,24 +164,16 @@ public class GameSession implements CombatEndListener {
 //            );
 //            return;
 //        }
-        if (player.getPosition().equals(targetPoint)) {
-            sendErrorMessageToPlayer(player, "You are already here.", "ALREADY_AT_TARGET");
-            return;
-        }
-
-        if (!this.gameMap.isWithinBounds(targetPoint) || !this.gameMap.getTile(targetPoint).isPassable()) {
-            sendErrorMessageToPlayer(player, "You can't move there.", "TILE_NOT_PASSABLE");
-            return;
-        }
-
-        List<Point> fullPath = this.gameMap.findPath(player.getPosition(), targetPoint);
+        //Tile targetTile = this.gameMap.getTile(targetHex);
+        List<Hex> fullPath = this.gameMap.findPath(player.getPosition(), targetHex);
 
         if (fullPath == null || fullPath.isEmpty()) {
             sendErrorMessageToPlayer(player, "No path found to the target.", "NO_PATH_FOUND");
             return;
         }
 
-        Point reachablePoint = fullPath.get(fullPath.size() - 1);
+        Hex reachableHex = fullPath.get(fullPath.size() - 1);
+
 
         // логика для AP в бою
 //        Point reachablePoint = player.getPosition();
@@ -188,16 +201,17 @@ public class GameSession implements CombatEndListener {
 //        }
 
         this.gameMap.getTile(player.getPosition()).setOccupiedById(null);
-        player.setPosition(reachablePoint);
+
+        player.setPosition(reachableHex);
         // для боя
         // player.setCurrentAP(player.getCurrentAP() - reachableCost);
-        this.gameMap.getTile(reachablePoint).setOccupiedById(player.getId());
+        this.gameMap.getTile(reachableHex).setOccupiedById(player.getId());
         EntityMovedEvent movedEvent = new EntityMovedEvent(
                 player.getId(),
                 player.getPosition(),
                 player.getCurrentAP(),
                 fullPath,
-                reachablePoint.equals(targetPoint)
+                reachableHex.equals(targetHex)
         );
 
         publishUpdate("entity_moved", movedEvent);
@@ -250,24 +264,16 @@ public class GameSession implements CombatEndListener {
                 targetId,
                 entity.getAttack()
         );
-        // 2. Отправляем типизированный объект
         publishUpdate("entity_attack", attackEvent);
 
-        EntityStatsUpdatedEvent statsUpdateEvent = new EntityStatsUpdatedEvent(
-                targetId,
-                damageResult.getAbsorbedByArmor(),
-                damageResult.getDamageToHp(),
-                target.getCurrentHp(),
-                target.getDefense(),
-                target.isDead()
-        );
-// 2. Отправляем типизированный объект
-        System.out.println("======================================================");
-        System.out.println("PREPARING TO SEND 'entity_stats_updated' EVENT");
-        System.out.println("Target ID: " + statsUpdateEvent.getTargetEntityId());
-        System.out.println("HP: " + statsUpdateEvent.getCurrentHp());
-        System.out.println("isDead from DTO: " + statsUpdateEvent.isDead());
-        System.out.println("======================================================");
+        EntityStatsUpdatedEvent statsUpdateEvent = EntityStatsUpdatedEvent.builder()
+                .targetEntityId(targetId)
+                .damageToHp(damageResult.getDamageToHp())
+                .currentHp(target.getCurrentHp())
+                .absorbedByArmor(damageResult.getAbsorbedByArmor())
+                .currentDefense(target.getDefense())
+                .isDead(target.isDead())
+                .build();
 
         publishUpdate("entity_stats_updated", statsUpdateEvent);
     }
@@ -278,8 +284,7 @@ public class GameSession implements CombatEndListener {
 
         int attackRange = attacker.getAttackRange();
 
-        int distance = this.gameMap.getDistance(attacker.getPosition(), target.getPosition());
-
+        int distance = attacker.getPosition().distanceTo(target.getPosition());
         return attackRange >= distance;
     }
 
