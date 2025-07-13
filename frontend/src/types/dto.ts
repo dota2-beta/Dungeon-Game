@@ -22,26 +22,49 @@ export enum CombatOutcome {
     DRAW = 'DRAW',
 }
 
+
 // =================================================================
-// Base & State DTOs (Базовые DTO и DTO состояний)
+// Core Data Structures (Ключевые структуры данных)
 // =================================================================
 
-export interface Point {
-    x: number;
-    y: number;
+/**
+ * Представляет координату на гексагональной сетке.
+ */
+export interface Hex {
+    q: number;
+    r: number;
 }
 
-export interface MapState {
-    width: number;
-    height: number;
-    tiles: TileType[];
-    spawnPoints?: Point[];
+/**
+ * Описывает один тайл на карте для передачи клиенту.
+ */
+export interface TileDto {
+    q: number;
+    r: number;
+    type: TileType;
 }
 
-export interface EntityState {
+
+// =================================================================
+// State DTOs (DTO для описания состояний)
+// =================================================================
+
+/**
+ * Описывает состояние гексагональной карты.
+ */
+export interface MapStateDto {
+    radius: number;
+    tiles: TileDto[];
+    spawnPoints?: Hex[];
+}
+
+/**
+ * Базовое состояние для любой сущности в игре.
+ */
+export interface EntityStateDto {
     id: string;
     name: string;
-    position: Point;
+    position: Hex;
     currentHp: number;
     maxHp: number;
     state: EntityStateType;
@@ -49,21 +72,30 @@ export interface EntityState {
     isDead: boolean;
 }
 
-export interface PlayerState extends EntityState {
+/**
+ * Состояние игрока (наследуется от EntityStateDto).
+ */
+export interface PlayerStateDto extends EntityStateDto {
     type: 'PLAYER';
     userId: string;
 }
 
-export interface MonsterState extends EntityState {
+/**
+ * Состояние монстра (наследуется от EntityStateDto).
+ */
+export interface MonsterStateDto extends EntityStateDto {
     type: 'MONSTER';
     monsterType: string;
 }
 
-export interface GameSessionState {
+/**
+ * Главный DTO, описывающий полное состояние игровой сессии для клиента.
+ */
+export interface GameSessionStateDto {
     sessionId: string;
     yourPlayerId: string;
-    mapState: MapState;
-    entities: (PlayerState | MonsterState)[];
+    mapState: MapStateDto;
+    entities: (PlayerStateDto | MonsterStateDto)[];
 }
 
 
@@ -71,42 +103,48 @@ export interface GameSessionState {
 // WebSocket Event Payloads (Данные для событий WebSocket)
 // =================================================================
 
+/**
+ * Событие: сущность переместилась.
+ */
 export interface EntityMovedEvent {
     entityId: string;
-    newPosition: Point;
+    newPosition: Hex;
     remainingAp?: number;
-    pathToAnimate?: Point[]; 
+    pathToAnimate?: Hex[];
     reachedTarget?: boolean;
 }
 
+/**
+ * Событие: одна сущность атаковала другую.
+ */
 export interface EntityAttackEvent {
     attackerEntityId: string;
     targetEntityId: string;
-    damageCaused: number;
+    damageCaused: number; 
 }
 
+/**
+ * Событие: у сущности изменились статы (обычно в результате урона).
+ */
 export interface EntityStatsUpdatedEvent {
     targetEntityId: string;
     damageToHp: number;
     currentHp: number;
     absorbedByArmor?: number;
-    newDefense?: number;
-    dead?: boolean;
+    currentDefense?: number;
+    isDead: boolean;
 }
 
-export interface CombatStartedEvent {
-    combatId: string;
-    combatInitiatorId: string;
-    team1EntityIds: string[]; // на бэке Set
-    team2EntityIds: string[];
-    participantIds: string[];
+/**
+ * Событие: сущность покинула игру.
+ */
+export interface PlayerLeftEvent {
+    entityId: string;
 }
 
-export interface CombatEndedEvent {
-    combatId: string;
-    outcome: CombatOutcome;
-}
-
+/**
+ * Событие: отправка ошибки конкретному игроку.
+ */
 export interface ErrorEvent {
     message: string;
     errorCode?: string;
@@ -114,36 +152,27 @@ export interface ErrorEvent {
 
 
 // =================================================================
-// Payloads для событий, которые мы еще не стандартизировали
-// (можно будет обновить в будущем)
+// Client Actions (Действия, отправляемые клиентом на сервер)
 // =================================================================
 
-export interface PlayerJoinedPayload {
-    player: PlayerState;
-}
-
-export interface PlayerLeftPayload {
-    entityId: string;
-}
-
-export interface TurnStartedPayload {
-    combatId: string;
-    currentTurnEntityId: string;
-    currentAp: number;
-}
-
-
-// =================================================================
-// Вспомогательные типы
-// =================================================================
-
+/**
+ * Описывает действие, которое игрок хочет совершить.
+ */
 export interface PlayerAction {
     actionType: 'MOVE' | 'ATTACK' | 'INTERACT' | 'END_TURN';
     targetId?: string;
-    targetPoint?: Point;
+    targetHex?: Hex;
     itemId?: string;
 }
 
+
+// =================================================================
+// Generic Wrapper (Общая обертка для всех обновлений)
+// =================================================================
+
+/**
+ * Обертка для всех сообщений, приходящих по топику /game-updates.
+ */
 export interface GameUpdatePayload<T> {
     actionType: string; 
     payload: T;

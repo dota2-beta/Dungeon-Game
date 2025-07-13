@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useGame } from '../context/GameContext';
-import type { PlayerState } from '../types/dto';
+import type { PlayerStateDto } from '../types/dto';
 
 /**
  * Компонент для отображения полоски здоровья.
@@ -41,7 +41,7 @@ const PlayerHUD: React.FC = () => {
     
     const lastProcessedTimestamp = useRef<number | null>(null);
 
-    const player = gameState.entities.find(e => e.id === gameState.yourPlayerId) as PlayerState | undefined;
+    const player = gameState.entities.find(e => e.id === gameState.yourPlayerId) as PlayerStateDto | undefined;
     const lastDamageInfo = gameState.lastDamage;
 
     useEffect(() => {

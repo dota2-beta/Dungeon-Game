@@ -1,18 +1,15 @@
 import React, { useEffect, useState, type FC } from 'react';
-
 import { connect, subscribe, publish, disconnect } from './api/websocketService';
 import { GameProvider, useGame } from './context/GameContext';
-import type { 
-    GameSessionState, 
-    GameUpdatePayload, 
-    EntityMovedEvent, 
-    EntityStatsUpdatedEvent, 
-    CombatEndedEvent, 
-    PlayerJoinedPayload,
-    PlayerLeftPayload,
-    PlayerState,
+import type {
+    GameSessionStateDto,
+    GameUpdatePayload,
+    EntityMovedEvent,
+    EntityStatsUpdatedEvent,
+    PlayerLeftEvent,
     EntityAttackEvent,
-    ErrorEvent
+    ErrorEvent,
+    PlayerStateDto
 } from './types/dto';
 import GameCanvas from './components/GameCanvas';
 import PlayerHUD from './components/PlayerHUD';
@@ -81,22 +78,27 @@ const Game: FC = () => {
 
     useEffect(() => {
         if (!isConnectedToServer || !sessionId) return;
-
         console.log(`Subscribing to session-specific topics for session: ${sessionId}`);
 
-        const initialStateSubscription = subscribe<GameSessionState>(
-            `/user/queue/session/${sessionId}/state`, 
+        const initialStateSubscription = subscribe<GameSessionStateDto>( // <-- Используем новый DTO
+            `/user/queue/session/${sessionId}/state`,
             (state) => {
-                console.log('Received initial game state:', state);
+                // --- ВОТ ВАЖНЫЙ ЛОГ ---
+                console.log("RECEIVED INITIAL STATE FROM SERVER:", state);
+                console.log("MAP STATE:", state.mapState);
+                if (state.mapState) {
+                    console.log("MAP TILES:", state.mapState.tiles);
+                    console.log("Number of tiles:", state.mapState.tiles?.length);
+                }
+                // -------------------------
                 dispatch({ type: 'SET_INITIAL_STATE', payload: state });
             }
         );
 
         const updatesSubscription = subscribe<GameUpdatePayload<any>>(
-            `/topic/session/${sessionId}/game-updates`, 
+            `/topic/session/${sessionId}/game-updates`,
             (update) => {
                 console.log('Received game update:', update);
-
                 setErrorMessage('');
 
                 switch (update.actionType) {
@@ -109,30 +111,26 @@ const Game: FC = () => {
                     case 'entity_stats_updated':
                         dispatch({ type: 'ENTITY_TOOK_DAMAGE', payload: update.payload as EntityStatsUpdatedEvent });
                         break;
-                    case 'player_joined':
-                        dispatch({ type: 'ADD_NEW_ENTITY', payload: update.payload as PlayerState });
-                        break;
+                        case 'player_joined':
+                            dispatch({ type: 'ADD_NEW_ENTITY', payload: update.payload as PlayerStateDto });
+                            break;
                     case 'player_left':
-                        dispatch({ type: 'REMOVE_ENTITY', payload: update.payload as PlayerLeftPayload });
+                        dispatch({ type: 'REMOVE_ENTITY', payload: update.payload as PlayerLeftEvent });
                         break;
-                    case 'combat_ended':
-                        const combatEndPayload = update.payload as CombatEndedEvent;
-                        alert(`Combat ended! Outcome: ${combatEndPayload.outcome}`);
-                        break;
+                    // case 'combat_ended':
+                    //     const combatEndPayload = update.payload as CombatEndedEvent;
+                    //     alert(`Combat ended! Outcome: ${combatEndPayload.outcome}`);
+                    //     break;
                 }
             }
         );
-        
-        publish('/app/join-session', {
-            sessionId: sessionId,
-            characterId: 'warrior_1'
-        });
+
+        publish('/app/join-session', { sessionId: sessionId });
 
         return () => {
             initialStateSubscription?.unsubscribe();
             updatesSubscription?.unsubscribe();
         };
-
     }, [sessionId, isConnectedToServer, dispatch, setErrorMessage]);
 
 
@@ -243,27 +241,22 @@ const Game: FC = () => {
                 ) : (
                 
                     <div id="game-session">
-                        <h2>Game Session ID: <span style={{ fontFamily: 'monospace', backgroundColor: '#eee', padding: '2px 6px', borderRadius: '3px' }}>{sessionId}</span></h2>
-                        {gameState.mapState && gameState.mapState.width > 0 ? (
-                            <>
-                                <div style={{ 
-                                    position: 'relative',
-                                    border: '2px solid black', 
-                                    display: 'inline-block', 
-                                    marginTop: '10px',
-                                    lineHeight: 0
-                                }}>
-                                    <GameCanvas />
-                                    <PlayerHUD />
-                                </div>
-                                <p>Click on the map to move your character. Click on another character to attack.</p>
-                            </>
-                        ) : (
-                            <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>
-                                <p style={{ margin: 0, fontWeight: 'bold' }}>Connecting to session and loading map...</p>
+                    <h2>Game Session ID: <span>{sessionId}</span></h2>
+                    {/* Проверяем наличие тайлов, а не width */}
+                    {gameState.mapState && gameState.mapState.tiles.length > 0 ? (
+                        <>
+                            <div style={{ position: 'relative', /* ... */ }}>
+                                <GameCanvas />
+                                <PlayerHUD />
                             </div>
-                        )}
-                    </div>
+                            <p>Click on the map to move your character. Click on another character to attack.</p>
+                        </>
+                    ) : (
+                        <div>
+                            <p>Connecting to session and loading map...</p>
+                        </div>
+                    )}
+                </div>
                 )}
             </main>
         </div>

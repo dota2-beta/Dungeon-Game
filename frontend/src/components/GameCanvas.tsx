@@ -29,7 +29,9 @@ const GameCanvas: React.FC = () => {
                     renderer.showDamageNumber(damageInfo.payload);
                     renderer.flashEntity(damageInfo.payload.targetEntityId, 400);
                 }
-                dispatch({ type: 'CLEAR_COMBAT_ANIMATIONS' });
+                setTimeout(() => {
+                    dispatch({ type: 'CLEAR_COMBAT_ANIMATIONS' });
+                }, 0);
             }
         }
     }, [gameState.lastAttack, gameState.lastDamage, dispatch]);

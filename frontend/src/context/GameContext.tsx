@@ -1,15 +1,16 @@
 import React, { createContext, useReducer, type Dispatch, useContext, useState } from 'react';
-import type { 
-    GameSessionState, 
-    EntityStatsUpdatedEvent, 
-    EntityMovedEvent, 
-    PlayerLeftPayload, 
-    PlayerState,
-    EntityAttackEvent 
+import type {
+    GameSessionStateDto,
+    EntityStatsUpdatedEvent,
+    EntityMovedEvent,
+    PlayerLeftEvent,
+    PlayerStateDto,
+    EntityAttackEvent,
+    MapStateDto,
+    Hex
 } from '../types/dto';
 
-
-interface ExtendedGameSessionState extends GameSessionState {
+interface ExtendedGameSessionState extends GameSessionStateDto {
     lastAttack: {
         payload: EntityAttackEvent,
         timestamp: number,
@@ -24,8 +25,7 @@ const initialState: ExtendedGameSessionState = {
     sessionId: '',
     yourPlayerId: '',
     mapState: { 
-        width: 0,
-        height: 0,
+        radius: 0,
         tiles: [],
         spawnPoints: []
     },
@@ -35,14 +35,13 @@ const initialState: ExtendedGameSessionState = {
 };
 
 type GameAction =
-    | { type: 'SET_INITIAL_STATE'; payload: GameSessionState }
+    | { type: 'SET_INITIAL_STATE'; payload: GameSessionStateDto }
     | { type: 'UPDATE_ENTITY_POSITION'; payload: EntityMovedEvent }
     | { type: 'ENTITY_ATTACKED'; payload: EntityAttackEvent }
     | { type: 'ENTITY_TOOK_DAMAGE'; payload: EntityStatsUpdatedEvent } 
     | { type: 'CLEAR_COMBAT_ANIMATIONS' }
-    | { type: 'ADD_NEW_ENTITY'; payload: PlayerState }
-    | { type: 'REMOVE_ENTITY'; payload: PlayerLeftPayload };
-
+    | { type: 'ADD_NEW_ENTITY'; payload: PlayerStateDto }
+    | { type: 'REMOVE_ENTITY'; payload: PlayerLeftEvent };
 
 const gameReducer = (state: ExtendedGameSessionState, action: GameAction): ExtendedGameSessionState => {
     switch (action.type) {
@@ -65,20 +64,19 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                 lastAttack: { payload: action.payload, timestamp: Date.now() }
             };
 
-        case 'ENTITY_TOOK_DAMAGE':
-            const updatedEntities = state.entities.map(entity => {
-                if (entity.id !== action.payload.targetEntityId) {
-                    return entity;
-                }
-                return {
-                    ...entity,
-                    currentHp: action.payload.currentHp,
-                    isDead: action.payload.dead ?? entity.isDead 
-                };
-            });
+            case 'ENTITY_TOOK_DAMAGE':
             return {
                 ...state,
-                entities: updatedEntities,
+                entities: state.entities.map(entity => {
+                    if (entity.id !== action.payload.targetEntityId) {
+                        return entity;
+                    }
+                    return {
+                        ...entity,
+                        currentHp: action.payload.currentHp,
+                        isDead: (action.payload as any).dead 
+                    };
+                }),
                 lastDamage: { payload: action.payload, timestamp: Date.now() }
             };
 
@@ -105,7 +103,6 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
             };
         
         default:
-            const exhaustiveCheck: never = action;
             return state;
     }
 };
