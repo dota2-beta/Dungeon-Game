@@ -5,9 +5,8 @@ game:
   settings:
     default-player-max-ap: 6
     default-monster-max-ap: 0
-    move-cost-hv: 0.5
-    move-cost-diag: 0.7
     default-attack-cost: 2
+    default-movement-cost: 1
   map:
     generation:
       max-rooms: 15

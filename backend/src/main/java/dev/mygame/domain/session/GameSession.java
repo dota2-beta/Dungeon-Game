@@ -8,6 +8,8 @@ import dev.mygame.domain.model.GameObject;
 import dev.mygame.domain.model.Player;
 import dev.mygame.domain.model.map.*;
 import dev.mygame.dto.websocket.response.event.*;
+import dev.mygame.enums.EntityStateType;
+import dev.mygame.service.FactionService;
 import dev.mygame.service.internal.DamageResult;
 import dev.mygame.enums.ActionType;
 import dev.mygame.enums.CombatOutcome;
@@ -21,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Data
 @Builder
@@ -32,24 +35,15 @@ public class GameSession implements CombatEndListener {
     private Map<String, GameObject> gameObjects;
 
     private GameMapHex gameMap;
-    private List<CombatInstance> activeCombats;
+    private Map<String, CombatInstance> activeCombats = new HashMap<>();
     private SimpMessagingTemplate messagingTemplate;
+
+    private final FactionService factionService;
 
     private static final Logger log = LoggerFactory.getLogger(GameSession.class);
 
-
     @Builder.Default
     private List<GameSessionEndListener> endListeners = new ArrayList<>();;
-
-//    public GameSession(String sessionID, GameSettings gameSettings, GameMap gameMap, SimpMessagingTemplate messagingTemplate) {
-//        this.sessionID = sessionID;
-//        this.gameSettings = gameSettings;
-//        this.entities = new HashMap<>();
-//        this.gameObjects = new HashMap<>();
-//        this.gameMap = gameMap;
-//        this.activeCombats = new ArrayList<>();
-//        this.messagingTemplate = messagingTemplate;
-//    }
 
     public void addEntity(Entity entity) {
 //        if(entity instanceof Player) {
@@ -86,6 +80,24 @@ public class GameSession implements CombatEndListener {
             return;
         }
 
+        if (entity.getState() == EntityStateType.COMBAT) {
+            CombatInstance combat = findCombatForEntity(entityId);
+
+            if (combat != null) {
+                if (!combat.getCurrentTurnEntityId().equals(entityId)) {
+                    log.warn("Player {} tried to perform action out of turn.", entity.getName());
+                    if (entity instanceof Player) {
+                        sendErrorMessageToPlayer((Player) entity, "It's not your turn!", "NOT_YOUR_TURN");
+                    }
+                    return;
+                }
+            } else {
+                // сущность в состоянии COMBAT, но не найдена ни в одном бою, не должно быть
+                log.error("Entity {} is in COMBAT state but not found in any active combat instance.", entity.getName());
+                return;
+            }
+        }
+
         ActionType actionType = action.getActionType();
         switch (actionType) {
             case MOVE:
@@ -104,6 +116,18 @@ public class GameSession implements CombatEndListener {
 //                endTurn();
 //                break;
         }
+    }
+
+    private CombatInstance findCombatForEntity(String entityId) {
+        for(CombatInstance combat : activeCombats.values()) {
+            boolean isInCombat = combat.getTeams().values().stream()
+                    .flatMap(Set::stream)
+                    .anyMatch(entity -> entity.getId().equals(entityId));
+            if(isInCombat) {
+                return combat;
+            }
+        }
+        return null;
     }
 
     private void entityMove(String entityId, Hex targetHex) {
@@ -133,37 +157,6 @@ public class GameSession implements CombatEndListener {
             return;
         }
 
-//        if(player.getPosition().equals(targetPoint)) {
-//            String message = "It's pointless.";
-//            this.messagingTemplate.convertAndSendToUser(
-//                    player.getUserId(),
-//                    WebSocketDestinations.ERROR_QUEUE,
-//                    Map.of("error", message)
-//            );
-//            return;
-//        }
-//
-//        if(!this.gameMap.isWithinBounds(targetPoint) || !this.gameMap.getTile(targetPoint).isPassable()) {
-//            String message = "You can't get through here";
-//            this.messagingTemplate.convertAndSendToUser(
-//                    player.getUserId(),
-//                    WebSocketDestinations.ERROR_QUEUE,
-//                    Map.of("error", message)
-//            );
-//            return;
-//        }
-//
-//        List<Point> fullPath = this.gameMap.findPath(player.getPosition(), targetPoint);
-//
-//        if(fullPath == null || fullPath.isEmpty()) {
-//            String message = "No path found to the target.";
-//            this.messagingTemplate.convertAndSendToUser(
-//                    player.getUserId(),
-//                    WebSocketDestinations.ERROR_QUEUE,
-//                    Map.of("error", message)
-//            );
-//            return;
-//        }
         //Tile targetTile = this.gameMap.getTile(targetHex);
         List<Hex> fullPath = this.gameMap.findPath(player.getPosition(), targetHex);
 
@@ -172,110 +165,153 @@ public class GameSession implements CombatEndListener {
             return;
         }
 
-        Hex reachableHex = fullPath.get(fullPath.size() - 1);
+        List<Hex> reachablePath = new ArrayList<>();
+        Hex reachableHex = player.getPosition();
+        int totalCost = 0;
 
+        if(player.getState() == EntityStateType.COMBAT) {
+            // логика для AP в бою
+            for (int i = 1; i < fullPath.size(); i++) {
+                if (totalCost + gameSettings.getDefaultMovementCost() <= player.getCurrentAP()) {
+                    totalCost += gameSettings.getDefaultMovementCost();
+                    reachableHex = fullPath.get(i);
+                    reachablePath.add(reachableHex);
+                } else {
+                    break;
+                }
+            }
 
-        // логика для AP в бою
-//        Point reachablePoint = player.getPosition();
-//        List<Point> reachablePath = new ArrayList<>();
-//        int reachableCost = 0;
-//        for(int i = 1; i < fullPath.size(); i++) {
-//            Point currentPoint = fullPath.get(i);
-//            Point previousPoint = fullPath.get(i - 1);
-//
-//            int stepCost = GameMap.calculateStepCost(currentPoint, previousPoint);
-//            if(reachableCost + stepCost <= player.getCurrentAP()) {
-//                reachableCost += stepCost;
-//                reachablePoint = currentPoint;
-//                reachablePath.add(reachablePoint);
-//            } else {
-//                break;
-//            }
-//        }
-
-//        if(reachablePath.isEmpty()) {
-//            String destination = "/user/" + player.getId() + "/queue/errors";
-//            String message = "Not enough Action Points to move.";
-//            this.messagingTemplate.convertAndSend(destination, message);
-//            return;
-//        }
+            if (reachablePath.isEmpty()) {
+                sendErrorMessageToPlayer(player, "Not enough Action Points to move.", "NOT_ENOUGH_AP");
+                return;
+            }
+        } else {
+            reachablePath = fullPath.subList(1, fullPath.size());
+            reachableHex = fullPath.get(fullPath.size() - 1);
+        }
 
         this.gameMap.getTile(player.getPosition()).setOccupiedById(null);
 
         player.setPosition(reachableHex);
-        // для боя
-        // player.setCurrentAP(player.getCurrentAP() - reachableCost);
+        player.setCurrentAP(player.getCurrentAP() - totalCost);
+
         this.gameMap.getTile(reachableHex).setOccupiedById(player.getId());
         EntityMovedEvent movedEvent = new EntityMovedEvent(
                 player.getId(),
                 player.getPosition(),
                 player.getCurrentAP(),
-                fullPath,
+                reachablePath,
                 reachableHex.equals(targetHex)
         );
 
         publishUpdate("entity_moved", movedEvent);
+
+        checkForCombatStart(player);
     }
 
-    private void entityAttack(String entityId, String targetId) {
-        Entity entity = entities.get(entityId);
+    private void entityAttack(String attackerId, String targetId) {
+        Entity attacker = entities.get(attackerId);
         Entity target = entities.get(targetId);
-        if(target == null || target.getCurrentHp() <= 0) {
-            if (entity instanceof Player) {
-                sendErrorMessageToPlayer(
-                        (Player) entity,
-                        "Target is already dead.",
-                        "TARGET_IS_DEAD"
-                );
+
+        if (target == null || target.isDead()) {
+            if (attacker instanceof Player) {
+                sendErrorMessageToPlayer((Player) attacker, "Target is already dead.", "TARGET_IS_DEAD");
             }
             return;
         }
 
-        if(!isTargetInRange(entity, target)) {
-            if (entity instanceof Player) {
-                sendErrorMessageToPlayer(
-                        (Player) entity,
-                        "Target is out of range.",
-                        "TARGET_OUT_OF_RANGE"
-                );
+        if (!isTargetInRange(attacker, target)) {
+            if (attacker instanceof Player) {
+                sendErrorMessageToPlayer((Player) attacker, "Target is out of range.", "TARGET_OUT_OF_RANGE");
             }
             return;
         }
 
-        // логика для боя
-//        if(entity.getCurrentAP() < gameSettings.getDefaultAttackCost())
-//        {
-//            String destination = "/user/" + entity.getId() + "/queue/errors";
-//            String message = "Not enough Action Points to attack.";
-//            this.messagingTemplate.convertAndSend(destination, message);
-//            return;
-//        }
+        boolean isAttackerInCombat = attacker.getState() == EntityStateType.COMBAT;
+        boolean isTargetInCombat = target.getState() == EntityStateType.COMBAT;
 
-//        if(entity == null || !entity.isAlive()
-//           || target == null || !target.isAlive()) {
-//            return;
-//        }
+        if (!isAttackerInCombat && !isTargetInCombat) {
+            if(factionService.areEnemies(attacker, target)) {
+                log.info("{} initiates combat by attacking {}!", attacker.getName(), target.getName());
 
-        DamageResult damageResult = target.takeDamage(entity.getAttack());
-        //entity.setCurrentAP(entity.getCurrentAP() - gameSettings.getDefaultAttackCost());
+                // наносим бесплатный урон
+                DamageResult damageResult = target.takeDamage(attacker.getAttack());
+                publishAttackEvents(attacker, target, damageResult); // Выносим отправку событий в отдельный метод
 
+                // Собираем участников и начинаем бой
+                List<Entity> participants = findNearbyAlliesAndEnemies(attacker, target);
+                startCombatWithInitiator(participants, attacker);
+            } else if(Objects.equals(attacker.getTeamId(), target.getTeamId())) {
+                DamageResult damageResult = target.takeDamage(attacker.getAttack());
+                publishAttackEvents(attacker, target, damageResult);
+            }
+            return;
+        }
+
+        if(!isAttackerInCombat && isTargetInCombat && factionService.areEnemies(attacker, target)) {
+            log.info("{} joins an existing combat by attacking {}!", attacker.getName(), target.getName());
+
+            DamageResult damageResult = target.takeDamage(attacker.getAttack());
+            publishAttackEvents(attacker, target, damageResult);
+
+            CombatInstance combat = findCombatForEntity(target.getId());
+            if(combat != null) {
+                combat.addParticipantsToCombat(findNearbyAlliesAndEnemies(attacker, target));
+            }
+        }
+
+        if (isAttackerInCombat) {
+            if (attacker.getCurrentAP() < gameSettings.getDefaultAttackCost()) {
+                if (attacker instanceof Player) {
+                    sendErrorMessageToPlayer((Player) attacker, "Not enough Action Points to attack.", "NOT_ENOUGH_AP");
+                }
+                return;
+            }
+            DamageResult damageResult = target.takeDamage(attacker.getAttack());
+            attacker.setCurrentAP(attacker.getCurrentAP() - gameSettings.getDefaultAttackCost());
+
+            publishAttackEvents(attacker, target, damageResult);
+        }
+
+        // Если бой был инициирован этой атакой, то ход атакующего на этом, по сути, заканчивается.
+        // У него будет полный набор AP на его первый официальный ход в бою.
+        // Дальнейшие действия (например, endTurn) будет делать клиент.
+    }
+
+    /**
+     * Вспомогательный метод, чтобы не дублировать код отправки событий.
+     */
+    private void publishAttackEvents(Entity attacker, Entity target, DamageResult damageResult) {
         EntityAttackEvent attackEvent = new EntityAttackEvent(
-                entityId,
-                targetId,
-                entity.getAttack()
+                attacker.getId(),
+                target.getId(),
+                attacker.getAttack()
         );
         publishUpdate("entity_attack", attackEvent);
 
         EntityStatsUpdatedEvent statsUpdateEvent = EntityStatsUpdatedEvent.builder()
-                .targetEntityId(targetId)
+                .targetEntityId(target.getId())
                 .damageToHp(damageResult.getDamageToHp())
                 .currentHp(target.getCurrentHp())
                 .absorbedByArmor(damageResult.getAbsorbedByArmor())
                 .currentDefense(target.getDefense())
                 .isDead(target.isDead())
                 .build();
-
         publishUpdate("entity_stats_updated", statsUpdateEvent);
+    }
+
+
+    private List<Entity> findNearbyAlliesAndEnemies(Entity attacker, Entity target) {
+        final int COMBAT_JOIN_RADIUS = 10;
+
+        return entities.values().stream()
+                .filter(entity -> entity.getState() == EntityStateType.EXPLORING)
+                .filter(entity -> entity.getPosition().distanceTo(attacker.getPosition()) <= COMBAT_JOIN_RADIUS ||
+                        entity.getPosition().distanceTo(target.getPosition()) <= COMBAT_JOIN_RADIUS)
+                .filter(entity -> Objects.equals(entity.getTeamId(), attacker.getTeamId()) ||
+                        Objects.equals(entity.getTeamId(), target.getTeamId()) ||
+                        entity.equals(attacker) || entity.equals(target))
+                .toList();
     }
 
     private boolean isTargetInRange(Entity attacker, Entity target) {
@@ -310,33 +346,102 @@ public class GameSession implements CombatEndListener {
         return null;
     }
 
-    private void combatStart(List<String> entityIds, String combatInitiatorId) {
-        String combatId = UUID.randomUUID().toString();
-        List<Entity> combatEntities = takeEntitiesById(entityIds);
-        CombatInstance combatInstance = new CombatInstance(combatId, this, combatEntities, combatInitiatorId);
-        activeCombats.add(combatInstance);
-        combatInstance.addListener(this);
+    private void checkForCombatStart(Entity movedEntity) {
+        if(movedEntity.getState() == EntityStateType.COMBAT)
+            return;
 
-        // переделать на Set
-        CombatStartedEvent combatStartedEvent = new CombatStartedEvent(
-                combatId,
-                combatInitiatorId,
-                combatInstance.getTeam1(),
-                combatInstance.getTeam2()
-        );
+        final int MAX_CHECK_RADIUS = 10;
+
+        List<Entity> nearbyEntities = findAllEntitiesInRadius(movedEntity.getId(), MAX_CHECK_RADIUS);
+        if (nearbyEntities.isEmpty())
+            return;
+
+        List<Entity> nearbyAllies = new ArrayList<>();
+        if(movedEntity.getTeamId() != null)
+            nearbyAllies = nearbyEntities.stream()
+                    .filter(e -> Objects.equals(e.getTeamId(), movedEntity.getTeamId()))
+                    .toList();
+
+        List<Entity> nearbyEnemies = new ArrayList<>();
+
+        String existingCombatId = null;
+        for(Entity nearbyEntity : nearbyEntities)
+            if(factionService.areEnemies(nearbyEntity, movedEntity)) {
+                if(nearbyEntity.getState() == EntityStateType.EXPLORING) {
+                    int distance = movedEntity.getPosition().distanceTo(nearbyEntity.getPosition());
+                    if (distance <= movedEntity.getAggroRadius() || distance <= nearbyEntity.getAggroRadius())
+                        nearbyEnemies.add(nearbyEntity);
+                } else {
+                    CombatInstance combat = findCombatForEntity(nearbyEntity.getId());
+                    if (combat != null) {
+                        existingCombatId = combat.getCombatId();
+                    }
+                }
+            }
+        if (nearbyEnemies.isEmpty() && existingCombatId == null) {
+            return;
+        }
+
+        List<Entity> joiningGroup = new ArrayList<>();
+        joiningGroup.add(movedEntity);
+        joiningGroup.addAll(nearbyAllies);
+
+        if(existingCombatId != null) {
+            log.info("{}'s group joins an existing combat!", movedEntity.getName());
+            activeCombats.get(existingCombatId).addParticipantsToCombat(joiningGroup);
+        } else {
+            log.info("Combat triggered by proximity! Participants: {}", nearbyEnemies.stream().map(Entity::getName).collect(Collectors.toList()));
+            joiningGroup.addAll(nearbyEnemies);
+            startCombatByProximity(joiningGroup);
+        }
+    }
+
+    private List<Entity> findAllEntitiesInRadius(String entityId, int searchingRadius) {
+        Entity entity = entities.get(entityId);
+        return entities.values().stream()
+                .filter(e -> !e.getId().equals(entity.getId()) &&
+                        entity.getPosition().distanceTo(e.getPosition()) <= searchingRadius)
+                .toList();
+    }
+
+    public void startCombatWithInitiator(List<Entity> participants, Entity initiator) {
+        String combatId = UUID.randomUUID().toString();
+        CombatInstance combat = new CombatInstance(combatId, this, participants, initiator);
+
+        combat.addListener(this);
+        activeCombats.put(combatId, combat);
+
+        publishCombatStartedEvent(combat, combatId);
+    }
+
+    public void startCombatByProximity(List<Entity> participants) {
+        String combatId = UUID.randomUUID().toString();
+        CombatInstance combat = new CombatInstance(combatId, this, participants);
+
+        combat.addListener(this);
+        activeCombats.put(combatId, combat);
+
+        publishCombatStartedEvent(combat, combatId);
+    }
+
+    private void publishCombatStartedEvent(CombatInstance combat, String combatId) {
+        List<CombatTeamDto> combatTeamDtos = combat.getTeams().entrySet().stream()
+                .map(entry -> {
+                    Set<String> teamIds = entry.getValue().stream()
+                            .map(Entity::getId)
+                            .collect(Collectors.toSet());
+                    return new CombatTeamDto(entry.getKey(), teamIds);
+                })
+                .toList();
+
+        CombatStartedEvent combatStartedEvent = CombatStartedEvent.builder()
+                .combatId(combatId)
+                .combatInitiatorId(null)
+                .teams(combatTeamDtos)
+                .initialTurnOrder(new ArrayList<>(combat.getTurnOrder()))
+                .build();
 
         publishUpdate("combat_started", combatStartedEvent);
-    }
-
-    private List<Entity> takeEntitiesById(List<String> entityIds) {
-        List<Entity> entityList = new ArrayList<>();
-        for(String entityId : entityIds)
-            entityList.add(entities.get(entityId));
-        return entityList;
-    }
-
-    private CombatInstance findCombatInstanceById(int combatId) {
-        return activeCombats.get(combatId);
     }
 
     /**
@@ -357,18 +462,18 @@ public class GameSession implements CombatEndListener {
     }
 
     @Override
-    public void onCombatEnded(CombatInstance combatInstance, CombatOutcome combatOutcome) {
-        combatInstance.removeListener(this);
-        boolean removed = this.activeCombats.removeIf(combat -> combat == combatInstance);
-        System.out.println("Combat " + combatInstance.getCombatId() + " ended with outcome: " + combatOutcome);
+    public void onCombatEnded(CombatInstance combat, CombatOutcome outcome, String forTeamId) {
+        if (outcome == CombatOutcome.VICTORY) {
+        }
 
+        long remainingTeams = combat.getTeams().values().stream()
+                .filter(team -> team.stream().anyMatch(Entity::isAlive))
+                .count();
 
-
-        CombatEndedEvent combatEndedEvent = new CombatEndedEvent(
-                combatInstance.getCombatId(),
-                combatOutcome
-        );
-
-        this.publishUpdate("combat_ended", combatEndedEvent);
+        if (remainingTeams <= 1) {
+            System.out.println("Only one team remains. Removing combat instance: " + combat.getCombatId());
+            // Если осталась одна или ноль команд, бой для всех окончен.
+            activeCombats.remove(combat.getCombatId());
+        }
     }
 }

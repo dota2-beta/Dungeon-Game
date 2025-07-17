@@ -133,6 +133,8 @@ public class GameSessionManager implements GameSessionEndListener {
                 .state(initialState)
                 .userId(userId)
                 .websocketSessionId(webSocketSessionId)
+                .teamId(null)
+                .aggroRadius(0)
                 .build();
         gameSession.addEntity(player);
 

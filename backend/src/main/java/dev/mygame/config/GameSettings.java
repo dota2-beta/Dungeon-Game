@@ -10,8 +10,6 @@ import org.springframework.stereotype.Component;
 public class GameSettings {
     private int defaultPlayerMaxAp;
     private int defaultMonsterMaxAp;
-
-    private double moveCostHv;
-    private double moveCostDiag;
     private int defaultAttackCost;
+    private int defaultMovementCost;
 }

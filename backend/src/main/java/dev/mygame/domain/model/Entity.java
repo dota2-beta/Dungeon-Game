@@ -3,6 +3,7 @@ package dev.mygame.domain.model;
 import dev.mygame.service.internal.DamageResult;
 import dev.mygame.enums.EntityStateType;
 import dev.mygame.domain.event.DeathListener;
+import jakarta.annotation.Nullable;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -15,7 +16,6 @@ import java.util.List;
 @SuperBuilder
 @NoArgsConstructor
 public abstract class Entity extends GameMapObject {
-    //protected String id;
     protected String name;
     protected int currentHp;
     protected int maxHp;
@@ -25,8 +25,10 @@ public abstract class Entity extends GameMapObject {
     private int currentAP;
     private int maxAP;
     private int initiative;
+    private int aggroRadius;
 
-    //protected Point position;
+    protected String teamId; // Id команды, к которой принадлежит Entity
+    protected String websocketSessionId;
 
     private EntityStateType state;
     private List<DeathListener> deathListener;
