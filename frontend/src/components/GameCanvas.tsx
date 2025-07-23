@@ -9,11 +9,12 @@ const GameCanvas: React.FC = () => {
     
     useEffect(() => {
         if (canvasRef.current && !rendererRef.current) {
+            console.log("GameCanvas: Initializing GameRenderer...");
             rendererRef.current = new GameRenderer(canvasRef.current);
         }
         
         if (rendererRef.current) {
-            rendererRef.current.update(gameState); 
+            rendererRef.current.update(gameState);
         }
     }, [gameState]);
 
@@ -23,21 +24,36 @@ const GameCanvas: React.FC = () => {
 
         if (attackInfo && damageInfo && attackInfo.payload.targetEntityId === damageInfo.payload.targetEntityId) {
             if (Math.abs(attackInfo.timestamp - damageInfo.timestamp) < 500) {
+                
                 const renderer = rendererRef.current;
                 if (renderer) {
+                    console.log("GameCanvas: SYNC! Both attack and damage events received. Running animations.");
                     renderer.playAttackAnimation(attackInfo.payload.attackerEntityId, attackInfo.payload.targetEntityId);
                     renderer.showDamageNumber(damageInfo.payload);
                     renderer.flashEntity(damageInfo.payload.targetEntityId, 400);
                 }
-                setTimeout(() => {
-                    dispatch({ type: 'CLEAR_COMBAT_ANIMATIONS' });
-                }, 0);
+
+                setTimeout(() => dispatch({ type: 'CLEAR_COMBAT_ANIMATIONS' }), 0);
             }
         }
     }, [gameState.lastAttack, gameState.lastDamage, dispatch]);
 
     useEffect(() => {
+        const moveInfo = gameState.lastMove;
+
+        if (moveInfo && rendererRef.current) {
+            console.log("GameCanvas: Detected move event, running animation.");
+            
+            rendererRef.current.animateMovement(moveInfo.payload);
+            
+            setTimeout(() => dispatch({ type: 'CLEAR_MOVE_ANIMATION' }), 0);
+        }
+    }, [gameState.lastMove, dispatch]);
+
+
+    useEffect(() => {
         return () => {
+            console.log("GameCanvas: Component unmounting, destroying renderer.");
             rendererRef.current?.destroy();
             rendererRef.current = null;
         }

@@ -16,10 +16,9 @@ export enum TileType {
 }
 
 export enum CombatOutcome {
+    VICTORY = 'VICTORY',
+    DEFEAT = 'DEFEAT',
     IN_PROGRESS = 'IN_PROGRESS',
-    PLAYERS_WIN = 'PLAYERS_WON',
-    MONSTERS_WIN = 'MONSTERS_WON',
-    DRAW = 'DRAW',
 }
 
 
@@ -67,9 +66,13 @@ export interface EntityStateDto {
     position: Hex;
     currentHp: number;
     maxHp: number;
+    currentAP: number;
+    maxAP: number;
+    attackRange: number;
     state: EntityStateType;
     type: 'PLAYER' | 'MONSTER';
-    isDead: boolean;
+    dead: boolean;
+    teamId?: string;
 }
 
 /**
@@ -103,66 +106,75 @@ export interface GameSessionStateDto {
 // WebSocket Event Payloads (Данные для событий WebSocket)
 // =================================================================
 
-/**
- * Событие: сущность переместилась.
- */
 export interface EntityMovedEvent {
     entityId: string;
     newPosition: Hex;
-    remainingAp?: number;
+    currentAp?: number;
     pathToAnimate?: Hex[];
-    reachedTarget?: boolean;
 }
 
-/**
- * Событие: одна сущность атаковала другую.
- */
 export interface EntityAttackEvent {
     attackerEntityId: string;
     targetEntityId: string;
-    damageCaused: number; 
+    damageCaused: number;
+    attackerCurrentAP: number;
 }
 
-/**
- * Событие: у сущности изменились статы (обычно в результате урона).
- */
 export interface EntityStatsUpdatedEvent {
     targetEntityId: string;
     damageToHp: number;
     currentHp: number;
     absorbedByArmor?: number;
     currentDefense?: number;
-    isDead: boolean;
+    dead: boolean;
 }
 
-/**
- * Событие: сущность покинула игру.
- */
+export interface PlayerJoinedEvent {
+    player: PlayerStateDto;
+}
+
 export interface PlayerLeftEvent {
     entityId: string;
 }
 
-/**
- * Событие: отправка ошибки конкретному игроку.
- */
 export interface ErrorEvent {
     message: string;
     errorCode?: string;
 }
 
+export interface CombatStartedEvent {
+    combatId: string;
+    combatInitiatorId: string;
+    teams: { teamId: string; memberIds: string[] }[];
+    initialTurnOrder: string[];
+    combatants: EntityStateDto[];
+}
+
+export interface CombatNextTurnEvent {
+    combatId: string;
+    currentTurnEntityId: string;
+    currentAp: number;
+}
+
+export interface TeamInviteEvent {
+    fromPlayerId: string;
+    fromPlayerName: string;
+    toTeamId: string;
+}
+
+export interface TeamUpdatedEvent {
+    teamId: string;
+    memberIds: string[];
+}
 
 // =================================================================
 // Client Actions (Действия, отправляемые клиентом на сервер)
 // =================================================================
 
-/**
- * Описывает действие, которое игрок хочет совершить.
- */
 export interface PlayerAction {
-    actionType: 'MOVE' | 'ATTACK' | 'INTERACT' | 'END_TURN';
+    actionType: 'MOVE' | 'ATTACK' | 'END_TURN'; // Упрощаем для начала
     targetId?: string;
     targetHex?: Hex;
-    itemId?: string;
 }
 
 
@@ -170,10 +182,13 @@ export interface PlayerAction {
 // Generic Wrapper (Общая обертка для всех обновлений)
 // =================================================================
 
-/**
- * Обертка для всех сообщений, приходящих по топику /game-updates.
- */
 export interface GameUpdatePayload<T> {
     actionType: string; 
     payload: T;
+}
+
+export interface CombatEndedEvent {
+    combatId: string;
+    outcome: CombatOutcome;
+    winningTeamId?: string;
 }

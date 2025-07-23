@@ -69,7 +69,7 @@ const PlayerHUD: React.FC = () => {
         return null;
     }
 
-    if (player.isDead) {
+    if (player.dead) {
         return (
             <div style={{
                 position: 'absolute',

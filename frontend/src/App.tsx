@@ -6,14 +6,21 @@ import type {
     GameUpdatePayload,
     EntityMovedEvent,
     EntityStatsUpdatedEvent,
+    PlayerJoinedEvent,
     PlayerLeftEvent,
     EntityAttackEvent,
     ErrorEvent,
-    PlayerStateDto
+    PlayerStateDto,
+    CombatStartedEvent,
+    CombatNextTurnEvent,
+    CombatEndedEvent
 } from './types/dto';
 import GameCanvas from './components/GameCanvas';
 import PlayerHUD from './components/PlayerHUD';
 import type { IFrame } from '@stomp/stompjs';
+import TurnOrder from './components/TurnOrder';
+import ActionBar from './components/ActionBar';
+import CombatOutcomeNotification from './components/CombatOutcomeNotification';
 
 const Game: FC = () => {
     const { gameState, dispatch, setErrorMessage } = useGame();
@@ -27,17 +34,15 @@ const Game: FC = () => {
         const onStompConnect = (frame: IFrame) => {
             setIsConnectedToServer(true);
             setErrorMessage('');
-            console.log('STOMP protocol is now active. Setting up general subscriptions...');
+            console.log('STOMP: Connected. Setting up general subscriptions...');
 
             subscribe<{ status: string; sessionId?: string; message?: string }>(
                 '/user/queue/create-session-response',
                 (response) => {
                     console.log('Received create-session response:', response);
                     if (response.status === 'success' && response.sessionId) {
-                        console.log('Setting session ID to:', response.sessionId);
                         setSessionId(response.sessionId);
                     } else {
-                        console.log('Response was not successful or sessionId is missing.');
                         setErrorMessage(response.message || 'Failed to create session.');
                     }
                 }
@@ -61,6 +66,7 @@ const Game: FC = () => {
                     setErrorMessage(errorPayload.message || "An unknown error occurred.");
                 }
             );
+            
         };
 
         const onError = (error: any) => {
@@ -78,32 +84,30 @@ const Game: FC = () => {
 
     useEffect(() => {
         if (!isConnectedToServer || !sessionId) return;
+
         console.log(`Subscribing to session-specific topics for session: ${sessionId}`);
 
-        const initialStateSubscription = subscribe<GameSessionStateDto>( // <-- Используем новый DTO
-            `/user/queue/session/${sessionId}/state`,
+        const initialStateSubscription = subscribe<GameSessionStateDto>(
+            `/user/queue/session/${sessionId}/state`, 
             (state) => {
-                // --- ВОТ ВАЖНЫЙ ЛОГ ---
-                console.log("RECEIVED INITIAL STATE FROM SERVER:", state);
-                console.log("MAP STATE:", state.mapState);
-                if (state.mapState) {
-                    console.log("MAP TILES:", state.mapState.tiles);
-                    console.log("Number of tiles:", state.mapState.tiles?.length);
-                }
-                // -------------------------
+                console.log('Received initial game state:', state);
                 dispatch({ type: 'SET_INITIAL_STATE', payload: state });
             }
         );
 
         const updatesSubscription = subscribe<GameUpdatePayload<any>>(
-            `/topic/session/${sessionId}/game-updates`,
+            `/topic/session/${sessionId}/game-updates`, 
             (update) => {
-                console.log('Received game update:', update);
+                console.log('--- RAW WEBSOCKET UPDATE RECEIVED ---', update);
+                if (update.actionType === 'entity_stats_updated') {
+                    console.log('%c1. App.tsx: Received entity_stats_updated', 'color: #e67e22', update.payload);
+                }
                 setErrorMessage('');
 
                 switch (update.actionType) {
                     case 'entity_moved':
-                        dispatch({ type: 'UPDATE_ENTITY_POSITION', payload: update.payload as EntityMovedEvent });
+                        console.log('Received entity_moved event:', update.payload); 
+                        dispatch({ type: 'ENTITY_MOVED', payload: update.payload as EntityMovedEvent });
                         break;
                     case 'entity_attack':
                         dispatch({ type: 'ENTITY_ATTACKED', payload: update.payload as EntityAttackEvent });
@@ -111,33 +115,39 @@ const Game: FC = () => {
                     case 'entity_stats_updated':
                         dispatch({ type: 'ENTITY_TOOK_DAMAGE', payload: update.payload as EntityStatsUpdatedEvent });
                         break;
-                        case 'player_joined':
-                            dispatch({ type: 'ADD_NEW_ENTITY', payload: update.payload as PlayerStateDto });
-                            break;
+                    case 'player_joined':
+                        dispatch({ type: 'ADD_NEW_ENTITY', payload: update.payload as PlayerStateDto });
+                        break;
                     case 'player_left':
                         dispatch({ type: 'REMOVE_ENTITY', payload: update.payload as PlayerLeftEvent });
                         break;
-                    // case 'combat_ended':
-                    //     const combatEndPayload = update.payload as CombatEndedEvent;
-                    //     alert(`Combat ended! Outcome: ${combatEndPayload.outcome}`);
-                    //     break;
+                    case 'combat_started':
+                        console.log('%cDispatching COMBAT_STARTED!', 'color: blue; font-size: 14px;', update.payload);
+                        dispatch({ type: 'COMBAT_STARTED', payload: update.payload as CombatStartedEvent });
+                        break;
+                    case 'combat_next_turn':
+                        dispatch({ type: 'NEXT_TURN', payload: update.payload as CombatNextTurnEvent });
+                        break;
+                        case 'combat_ended':
+                            dispatch({ type: 'COMBAT_ENDED', payload: update.payload as CombatEndedEvent });
+                            break;        
                 }
             }
         );
-
+        
         publish('/app/join-session', { sessionId: sessionId });
 
         return () => {
             initialStateSubscription?.unsubscribe();
             updatesSubscription?.unsubscribe();
         };
-    }, [sessionId, isConnectedToServer, dispatch, setErrorMessage]);
 
+    }, [sessionId, isConnectedToServer, dispatch, setErrorMessage]);
 
     const handleCreateGame = () => {
         if (isConnectedToServer) {
             setErrorMessage('');
-            publish('/app/create-session', { levelType: 'EASY' });
+            publish('/app/create-session', {});
         } else {
             setErrorMessage('Not connected to the server.');
         }
@@ -157,7 +167,7 @@ const Game: FC = () => {
             position: 'relative',
             padding: '20px', 
             fontFamily: 'system-ui, sans-serif', 
-            maxWidth: '800px', 
+            maxWidth: '1240px',
             margin: '0 auto' 
         }}>
             <div style={{
@@ -214,7 +224,7 @@ const Game: FC = () => {
                                 disabled={!isConnectedToServer}
                                 style={{ padding: '10px 15px', fontSize: '16px', cursor: 'pointer', border: '1px solid #007bff', backgroundColor: '#007bff', color: 'white', borderRadius: '5px' }}
                             >
-                                Create Game (Easy)
+                                Create Game
                             </button>
                         </div>
 
@@ -239,24 +249,38 @@ const Game: FC = () => {
                         </div>
                     </div>
                 ) : (
-                
                     <div id="game-session">
-                    <h2>Game Session ID: <span>{sessionId}</span></h2>
-                    {/* Проверяем наличие тайлов, а не width */}
-                    {gameState.mapState && gameState.mapState.tiles.length > 0 ? (
-                        <>
-                            <div style={{ position: 'relative', /* ... */ }}>
-                                <GameCanvas />
-                                <PlayerHUD />
+                        <h2 style={{ wordBreak: 'break-all' }}>
+                            Game Session ID: 
+                            <span style={{ fontFamily: 'monospace', backgroundColor: '#eee', padding: '2px 6px', borderRadius: '3px', marginLeft: '8px' }}>
+                                {sessionId}
+                            </span>
+                        </h2>
+                        
+                        {gameState.mapState && gameState.mapState.tiles.length > 0 ? (
+                            <>
+                                <div style={{ 
+                                    position: 'relative',
+                                    border: '2px solid black', 
+                                    display: 'inline-block', 
+                                    marginTop: '10px',
+                                    lineHeight: 0,
+                                    backgroundColor: '#1d2327' 
+                                }}>
+                                    <GameCanvas />
+                                    <PlayerHUD />
+                                    <TurnOrder />
+                                    <ActionBar />
+                                    <CombatOutcomeNotification />
+                                </div>
+                                <p>Click on the map to move your character. Click on another character to attack.</p>
+                            </>
+                        ) : (
+                            <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>
+                                <p style={{ margin: 0, fontWeight: 'bold' }}>Connecting to session and loading map...</p>
                             </div>
-                            <p>Click on the map to move your character. Click on another character to attack.</p>
-                        </>
-                    ) : (
-                        <div>
-                            <p>Connecting to session and loading map...</p>
-                        </div>
-                    )}
-                </div>
+                        )}
+                    </div>
                 )}
             </main>
         </div>
