@@ -1,14 +1,14 @@
 package dev.mygame.domain.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.mygame.service.internal.DamageResult;
 import dev.mygame.enums.EntityStateType;
 import dev.mygame.domain.event.DeathListener;
 import jakarta.annotation.Nullable;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -31,7 +31,12 @@ public abstract class Entity extends GameMapObject {
     protected String websocketSessionId;
 
     private EntityStateType state;
-    private List<DeathListener> deathListener;
+
+    @Builder.Default
+    @EqualsAndHashCode.Exclude
+    @ToString.Exclude
+    private List<DeathListener> deathListener = new ArrayList<>();
+    //@JsonProperty("isDead")
     private boolean isDead = false;
 
     public DamageResult takeDamage(int damage) {
@@ -87,7 +92,8 @@ public abstract class Entity extends GameMapObject {
         if (this.deathListener == null || this.deathListener.isEmpty())
             return;
 
-        for(DeathListener listener : this.deathListener) {
+        List<DeathListener> listenersCopy = new ArrayList<>(this.deathListener);
+        for(DeathListener listener : listenersCopy) {
             listener.onEntityDied(this);
         }
         this.deathListener.clear();

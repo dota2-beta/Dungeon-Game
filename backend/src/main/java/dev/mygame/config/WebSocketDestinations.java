@@ -11,6 +11,7 @@ public final class WebSocketDestinations {
     public static final String SESSION_STATE_QUEUE = "/queue/session/{sessionId}/state";
     public static final String ERROR_QUEUE = "/queue/errors";
     public static final String PRIVATE_NOTIFICATION_MESSAGE_QUEUE = "/queue/notification/private";
+    public static final String PRIVATE_EVENTS_QUEUE = "/queue/events";
 
 
     // --- Адреса для сообщений от клиента к серверу ---

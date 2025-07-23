@@ -12,6 +12,8 @@ public class EntityStateDto {
     public int currentHp;
     public int maxHp;
     public EntityStateType state;
+    public int currentAP;
+    public int maxAP;
     public String type; // игрок или монстр
     public boolean isDead;
 }

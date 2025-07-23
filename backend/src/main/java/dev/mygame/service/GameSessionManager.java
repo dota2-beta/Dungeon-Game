@@ -20,12 +20,15 @@ import dev.mygame.mapper.GameSessionMapper;
 import dev.mygame.mapper.context.MappingContext;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
 
 @Data
 @AllArgsConstructor
@@ -43,13 +46,20 @@ public class GameSessionManager implements GameSessionEndListener {
     private final EntityMapper entityMapper;
     private final EntityActionMapper entityActionMapper;
 
+    private final FactionService factionService;
+
+    private static final Logger log = LoggerFactory.getLogger(GameSessionManager.class);
+    private final ScheduledExecutorService scheduler;
+
     @Autowired
     public GameSessionManager(SimpMessagingTemplate messagingTemplate, GameSettings gameSettings, MapGenerationProperties props,
-                              MapGenerator mapGenerator, GameDataLoader gameDataLoader, GameSessionMapper gameSessionMapper, EntityMapper entityMapper, EntityActionMapper entityActionMapper) {
+                              MapGenerator mapGenerator, GameDataLoader gameDataLoader, GameSessionMapper gameSessionMapper, EntityMapper entityMapper, EntityActionMapper entityActionMapper, FactionService factionService, ScheduledExecutorService scheduler) {
         this.props = props;
         this.gameSessionMapper = gameSessionMapper;
         this.entityMapper = entityMapper;
         this.entityActionMapper = entityActionMapper;
+        this.factionService = factionService;
+        this.scheduler = scheduler;
         this.activeSessions = new ConcurrentHashMap<>();
         this.messagingTemplate = messagingTemplate;
         this.gameSettings = gameSettings;
@@ -67,11 +77,14 @@ public class GameSessionManager implements GameSessionEndListener {
 
         GameSession gameSession = GameSession.builder()
                 .sessionID(sessionId)
+                .scheduler(scheduler)
                 .gameMap(gameMapHex)
                 .gameSettings(this.gameSettings)
                 .messagingTemplate(this.messagingTemplate)
                 .entities(initialEntities)
                 .gameObjects(initialGameObjects)
+                .factionService(factionService)
+                .entityMapper(entityMapper)
                 .build();
         gameSession.addGameSessionEndListener(this);
 
@@ -113,7 +126,8 @@ public class GameSessionManager implements GameSessionEndListener {
         int baseAttack = 10;
         int baseDefense = 5;
         int baseInitiative = 10;
-        int baseMaxAp = 6;
+        int baseMaxAp = 8;
+        int baseCurrentAp = 6;
         int baseAttackRange = 1;
         EntityStateType initialState = EntityStateType.EXPLORING;
 //        List<DeathListener> deathListeners = new ArrayList<>();
@@ -128,7 +142,7 @@ public class GameSessionManager implements GameSessionEndListener {
                 .defense(baseDefense)
                 .initiative(baseInitiative)
                 .maxAP(baseMaxAp)
-                .currentAP(baseMaxAp)
+                .currentAP(baseCurrentAp)
                 .attackRange(baseAttackRange)
                 .state(initialState)
                 .userId(userId)
@@ -161,13 +175,17 @@ public class GameSessionManager implements GameSessionEndListener {
                 props.getBattleArenaRadius()
         );
 
-        GameSessionStateDto stateDto = gameSessionMapper.toGameSessionState(gameSession, context);
+        //GameSessionStateDto stateDto = gameSessionMapper.toGameSessionState(gameSession, context);
 
         messagingTemplate.convertAndSendToUser(
                 userId,
                 WebSocketDestinations.SESSION_STATE_QUEUE.replace("{sessionId}", gameSession.getSessionID()),
                 gameSessionMapper.toGameSessionState(gameSession, context)
         );
+    }
+
+    public void inviteToTeam(String sessionId, String inviterUserId, String invitedUserId) {
+        activeSessions.get(sessionId);
     }
 
     @Override
@@ -180,5 +198,28 @@ public class GameSessionManager implements GameSessionEndListener {
         } else {
             // TODO: Логировать ошибку - сессия не найдена в activeSessions при попытке завершения
         }
+    }
+
+    public void invitePlayerToTeam(String sessionId, String inviterUserId, String targetPlayerId) {
+        GameSession session = activeSessions.get(sessionId);
+        if(session == null)
+            return;
+
+        Player inviterUser = session.getPlayerByUserId(inviterUserId);
+        Player targetUser = session.getPlayerByEntityId(targetPlayerId);
+
+        if(inviterUser != null && targetUser != null)
+            session.handleInvitationPlayerToTeam(inviterUser, targetUser);
+    }
+
+    public void respondPlayerToTeamInvite(String sessionId, String invitedUserId, boolean accepted) {
+        GameSession session = activeSessions.get(sessionId);
+        if(session == null)
+            return;
+
+        Player invitedUser = session.getPlayerByUserId(invitedUserId);
+
+        if(invitedUser != null)
+            session.handleRespondPlayerToTeamInvite(invitedUser, accepted);
     }
 }

@@ -1,7 +1,9 @@
 package dev.mygame.controller.websocket;
 
+import dev.mygame.dto.websocket.request.InviteToTeamRequest;
 import dev.mygame.dto.websocket.request.JoinRequest;
 import dev.mygame.dto.websocket.request.PlayerAction;
+import dev.mygame.dto.websocket.request.RespondToTeamRequest;
 import dev.mygame.service.GameSessionManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -73,33 +75,23 @@ public class WebSocketController {
         }
     }
 
-//    @MessageMapping("/create-session")
-//    public void onCreateSession(SimpMessageHeaderAccessor headerAccessor) {
-//        String websocketSessionId = headerAccessor.getSessionId();
-//        if (websocketSessionId == null) {
-//            System.err.println("Cannot process /create-session: websocketSessionId is null.");
-//            return;
-//        }
-//
-//        try {
-//            String sessionId = gameSessionManager.createSession();
-//
-//            Map<String, String> response = Map.of(
-//                    "status", "success",
-//                    "sessionId", sessionId,
-//                    "recipientWsSessionId", websocketSessionId
-//            );
-//            messagingTemplate.convertAndSend("/topic/session-created-response", response);
-//
-//        } catch (Exception e) {
-//            Map<String, String> errorResponse = Map.of(
-//                    "status", "error",
-//                    "message", e.getMessage(),
-//                    "recipientWsSessionId", websocketSessionId
-//            );
-//            messagingTemplate.convertAndSend("/topic/session-created-response", errorResponse);
-//            e.printStackTrace();
-//        }
-//    }
+    @MessageMapping("/session/{sessionId}/team/invite")
+    public void onInviteToTeam(
+            @DestinationVariable String sessionId,
+            @Payload InviteToTeamRequest request,
+            Principal principal
+    ) {
+        String currentUserId = principal.getName();
+        gameSessionManager.invitePlayerToTeam(sessionId, currentUserId, request.getTargetPlayerId());
+    }
 
+    @MessageMapping("/session/{sessionId}/team/respond")
+    public void onRespondToTeam(
+            @DestinationVariable String sessionId,
+            @Payload RespondToTeamRequest request,
+            Principal principal
+    ) {
+        String currentUserId = principal.getName();
+        gameSessionManager.respondPlayerToTeamInvite(sessionId, currentUserId, request.isAccepted());
+    }
 }

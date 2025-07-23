@@ -7,9 +7,6 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class EntityAttackEvent {
-    private String attackerEntityId;
-    private String targetEntityId;
-    private int damageCaused;
-    private int attackerCurrentAP;
+public class EntityTurnEndedEvent {
+    private String entityId;
 }

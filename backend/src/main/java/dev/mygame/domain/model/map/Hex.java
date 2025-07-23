@@ -21,6 +21,15 @@ public class Hex {
             new Hex(0, 1)
     );
 
+    /**
+     * Возвращает соседа в заданном направлении.
+     * @param direction Индекс направления от 0 до 5.
+     * @return Координата соседа.
+     */
+    public Hex getNeighbor(int direction) {
+        return this.add(DIRECTIONS.get(direction));
+    }
+
     public int getS() {
         return -q-r;
     }

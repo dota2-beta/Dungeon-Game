@@ -3,10 +3,12 @@ spring:
     name: MyGame
 game:
   settings:
-    default-player-max-ap: 6
+    default-entity-max-ap: 8
+    default-entity-current-ap: 6
     default-monster-max-ap: 0
     default-attack-cost: 2
     default-movement-cost: 1
+    default-check-radius: 5
   map:
     generation:
       max-rooms: 15

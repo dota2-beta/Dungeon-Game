@@ -1,0 +1,13 @@
+package dev.mygame.dto.websocket.response.event;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+import java.util.Set;
+
+@Data
+@AllArgsConstructor
+public class TeamUpdatedEvent {
+    private String teamId;
+    private Set<String> memberIds;
+}

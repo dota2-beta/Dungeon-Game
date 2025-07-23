@@ -1,8 +1,12 @@
 package dev.mygame.config;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
@@ -14,5 +18,14 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // Разрешить стандартные HTTP-методы
                 .allowedHeaders("*") // Разрешить все заголовки
                 .allowCredentials(true); // Разрешить передачу куки и заголовков авторизации
+    }
+
+    /**
+     * Создает общий планировщик задач для всего приложения.
+     * @return ScheduledExecutorService, управляемый Spring.
+     */
+    @Bean(destroyMethod = "shutdown")
+    public ScheduledExecutorService scheduledExecutorService() {
+        return Executors.newSingleThreadScheduledExecutor();
     }
 }

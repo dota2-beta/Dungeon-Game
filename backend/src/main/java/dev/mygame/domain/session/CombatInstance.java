@@ -2,6 +2,7 @@ package dev.mygame.domain.session;
 
 import dev.mygame.dto.websocket.response.event.CombatNextTurnEvent;
 import dev.mygame.dto.websocket.response.event.CombatParticipantsJoinedEvent;
+import dev.mygame.dto.websocket.response.event.EntityTurnEndedEvent;
 import dev.mygame.enums.CombatOutcome;
 import dev.mygame.enums.EntityStateType;
 import dev.mygame.domain.event.CombatEndListener;
@@ -10,7 +11,11 @@ import dev.mygame.domain.model.Entity;
 import dev.mygame.domain.model.Monster;
 import dev.mygame.domain.model.Player;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,14 +24,23 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class CombatInstance implements DeathListener {
     private String combatId;
+
+    @EqualsAndHashCode.Exclude
     private GameSession gameSession;
 
     private Map<String, Set<Entity>> teams = new HashMap<>();
 
-    private Queue<String> turnOrder = new LinkedList<>();;
+    private List<String> turnOrder = new ArrayList<>(); // Вместо Queue<String>
+    private int currentTurnIndex = -1;
     private String currentTurnEntityId;
 
-    private List<CombatEndListener> endListeners;
+    private Set<String> hasTakenFirstTurn = new HashSet<>();
+
+    private List<CombatEndListener> endListeners = new ArrayList<>();
+
+    private boolean isFinished = false;
+
+    private static final Logger log = LoggerFactory.getLogger(CombatInstance.class);
 
     public CombatInstance(String combatId, GameSession gameSession,
                           List<Entity> initialParticipants, Entity initiator) {
@@ -34,7 +48,8 @@ public class CombatInstance implements DeathListener {
         this.gameSession = gameSession;
 
         initializeTeamsAndListeners(initialParticipants);
-        initializeTurnOrder(initiator);
+        //initializeTurnOrder(initiator);
+        initializeTurnOrder();
 
         startNextTurn();
     }
@@ -61,90 +76,116 @@ public class CombatInstance implements DeathListener {
         }
     }
 
-    private CombatOutcome checkCombatOutcomeForTeam(String teamId) {
-        Set<Entity> myTeam = this.teams.get(teamId);
-
-        boolean isTeamAlive = (myTeam != null) && myTeam.stream().anyMatch(entity -> !entity.isDead());
-        if(!isTeamAlive)
-            return CombatOutcome.DEFEAT;
-
-        boolean isOtherTeamsAlive = this.teams.entrySet().stream()
-                .filter(team -> team.getKey() != teamId)
-                .anyMatch(team -> team.getValue().stream().anyMatch(entity -> !entity.isDead()));
-        if(!isOtherTeamsAlive)
-            return CombatOutcome.VICTORY;
-
-        return CombatOutcome.IN_PROGRESS;
-    }
-
     /**
      * Инициализирует очередь ходов, когда нет явного инициатора.
      * Все участники сортируются по инициативе.
      */
+    // В классе CombatInstance.java
+
     private void initializeTurnOrder() {
         List<Entity> allParticipants = new ArrayList<>();
         this.teams.values().forEach(team ->
                 team.stream()
-                .filter(Entity::isAlive)
-                .forEach(allParticipants::add)
+                        .filter(Entity::isAlive)
+                        .forEach(allParticipants::add)
         );
-
-        // Просто сортируем всех по инициативе
-        allParticipants.sort(Comparator.comparingInt(Entity::getInitiative).reversed());
-
+        allParticipants.sort(
+                Comparator.comparingInt(Entity::getInitiative).reversed()
+                        .thenComparing(Entity::getId)
+        );
         this.turnOrder.clear();
         allParticipants.forEach(entity -> this.turnOrder.add(entity.getId()));
+        this.currentTurnIndex = -1;
+        log.info("Initialized new turn order for the round: {}", this.turnOrder);
     }
+
+
 
     /**
      * Инициализирует очередь ходов, когда есть явный инициатор.
      * Инициатор ставится первым, остальные сортируются по инициативе.
      */
+
     private void initializeTurnOrder(Entity initiator) {
         List<Entity> otherParticipants = new ArrayList<>();
-        this.teams.values().forEach(team -> {
-            team.stream()
-                    .filter(Entity::isAlive)
-                    .filter(entity -> !entity.getId().equals(initiator.getId()))
-                    .forEach(otherParticipants::add);
-        });
-        otherParticipants.sort(Comparator.comparing(Entity::getInitiative).reversed());
+        this.teams.values().forEach(team ->
+                team.stream()
+                        .filter(Entity::isAlive)
+                        // ВАЖНО: Исключаем самого инициатора из этого списка
+                        .filter(entity -> !entity.getId().equals(initiator.getId()))
+                        .forEach(otherParticipants::add)
+        );
+
+        otherParticipants.sort(
+                Comparator.comparingInt(Entity::getInitiative).reversed()
+                        .thenComparing(Entity::getId)
+        );
 
         this.turnOrder.clear();
         this.turnOrder.add(initiator.getId());
         otherParticipants.forEach(entity -> this.turnOrder.add(entity.getId()));
 
-        this.currentTurnEntityId = initiator.getId();
-        initiator.setInitiative(initiator.getMaxAP());
+        this.currentTurnIndex = 0;
+
+        log.info("--- [INITIATOR-BASED SORT] Final turn order: {}", this.turnOrder);
     }
 
     private void startNextTurn() {
-        if(this.turnOrder.isEmpty()) {
+        if (this.currentTurnIndex != -1) {
+            this.currentTurnIndex++;
+        }
+         else {
+            this.currentTurnIndex = 0;
+        }
+
+
+        if (currentTurnIndex >= this.turnOrder.size()) {
             initializeTurnOrder();
+            this.currentTurnIndex = 0;
         }
 
-        String nextEntityId = this.turnOrder.poll();
+        if (this.turnOrder.isEmpty()) {
+            endCombatForAll();
+            return;
+        }
 
-        Entity currentEntity = this.gameSession.getEntities().get(this.currentTurnEntityId);
-        if(currentEntity == null || !currentEntity.isAlive()) {
+        String currentEntityId = getCurrentTurnEntityId();
+        Entity nextEntity = this.gameSession.getEntities().get(currentEntityId);
+
+        if (nextEntity == null || !nextEntity.isAlive()) {
             startNextTurn();
-            return; //не должно быть
+            return;
         }
-        this.currentTurnEntityId = nextEntityId;
-        currentEntity.setCurrentAP(currentEntity.getMaxAP());
 
-        CombatNextTurnEvent nextTurnEvent = new CombatNextTurnEvent(
-                this.combatId,
-                this.currentTurnEntityId,
-                currentEntity.getCurrentAP() // Передаем актуальное количество ОД
-        );
+        if (hasTakenFirstTurn.contains(currentEntityId)) {
+            int restoredAP = Math.min(
+                    nextEntity.getCurrentAP() + gameSession.getGameSettings().getDefaultEntityCurrentAp(),
+                    nextEntity.getMaxAP()
+            );
+            nextEntity.setCurrentAP(restoredAP);
+        } else {
+            final int startingAP = gameSession.getGameSettings().getDefaultEntityCurrentAp();
+            nextEntity.setCurrentAP(startingAP);
+            hasTakenFirstTurn.add(currentEntityId);
+        }
 
+        CombatNextTurnEvent nextTurnEvent = CombatNextTurnEvent.builder()
+                .combatId(this.combatId)
+                .currentTurnEntityId(getCurrentTurnEntityId())
+                .currentAp(nextEntity.getCurrentAP())
+                .build();
         this.gameSession.publishUpdate("combat_next_turn", nextTurnEvent);
+    }
 
+    /**
+     * Завершает текущий ход и запускает следующий.
+     * Этот метод предполагает, что все проверки (чей ход и т.д.) уже пройдены.
+     */
+    public void proceedToNextTurn() {
+        EntityTurnEndedEvent event = new EntityTurnEndedEvent(getCurrentTurnEntityId());
+        this.gameSession.publishUpdate("entity_turn_ended", event);
 
-        if (currentEntity instanceof Monster) {
-            // логика ИИ для монстров
-        }
+        startNextTurn();
     }
 
     /**
@@ -198,36 +239,21 @@ public class CombatInstance implements DeathListener {
         }
     }
 
+    public String getCurrentTurnEntityId() {
+        if (currentTurnIndex >= 0 && currentTurnIndex < turnOrder.size()) {
+            return turnOrder.get(currentTurnIndex);
+        }
+        return null;
+    }
+
     @Override
     public void onEntityDied(Entity e) {
-        String myTeamId = e.getTeamId();
-        this.teams.get(myTeamId).remove(e);
-
+        log.info("CombatInstance: Entity {} died. Updating combat state.", e.getName());
         this.turnOrder.remove(e.getId());
         gameSession.publishUpdate("entity_died", e.getId());
 
-        Set<String> allTeamIds = new HashSet<>(teams.keySet());
-        for (String teamId : allTeamIds) {
-            CombatOutcome outcome = checkCombatOutcomeForTeam(teamId);
-
-            if (outcome != CombatOutcome.IN_PROGRESS) {
-                Set<Entity> teamMembers = teams.get(teamId);
-                if (teamMembers == null) continue;
-
-                notifyCombatEndListeners(outcome, teamId);
-
-                // Меняем состояние выживших членов команды
-                if (outcome == CombatOutcome.VICTORY) {
-                    teamMembers.forEach(member -> {
-                        if (member.isAlive()) {
-                            member.setState(EntityStateType.EXPLORING);
-                        }
-                    });
-                }
-            }
-        }
         long remainingTeamsCount = teams.values().stream()
-                .filter(team -> team.stream().anyMatch(Entity::isAlive))
+                .filter(t -> t.stream().anyMatch(Entity::isAlive))
                 .count();
 
         if (remainingTeamsCount <= 1) {
@@ -236,6 +262,13 @@ public class CombatInstance implements DeathListener {
     }
 
     private void endCombatForAll() {
+        if (this.isFinished) return; // Защита от двойного вызова
+        this.isFinished = true;
+        log.info("--- Combat {} is ending for all participants. ---", this.combatId);
+
+        String winningTeamId = findWinningTeam();
+        CombatOutcome finalOutcome = (winningTeamId != null) ? CombatOutcome.VICTORY : CombatOutcome.DEFEAT;
+
         this.teams.values().forEach(team -> {
             team.forEach(entity -> {
                 entity.removeDeathListener(this);
@@ -244,16 +277,10 @@ public class CombatInstance implements DeathListener {
             });
         });
 
+        notifyCombatEndListeners(finalOutcome, winningTeamId);
+
         this.teams.clear();
         this.turnOrder.clear();
-
-        String winningTeamId = findWinningTeam();
-
-        if(winningTeamId != null) {
-            notifyCombatEndListeners(CombatOutcome.VICTORY, winningTeamId);
-        } else {
-            // ...
-        }
 
     }
 

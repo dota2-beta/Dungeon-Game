@@ -1,6 +1,7 @@
 package dev.mygame.dto.websocket.response.event;
 
 import dev.mygame.domain.model.Entity;
+import dev.mygame.dto.websocket.response.EntityStateDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,4 +18,5 @@ public class CombatStartedEvent {
     private String combatInitiatorId;
     private List<CombatTeamDto> teams;
     private List<String> initialTurnOrder;
+    private List<EntityStateDto> combatants;
 }
