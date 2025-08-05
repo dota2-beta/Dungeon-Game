@@ -28,8 +28,6 @@ public class AStarNode {
      * @param finalHex Целевой гекс.
      */
     public void calculateHeuristic(Hex finalHex) {
-        // Используем наш метод distanceTo. Умножаем на 10, чтобы работать с целыми числами,
-        // так как стоимость шага у нас тоже будет 10.
         this.hCost = this.hex.distanceTo(finalHex) * 10;
     }
 

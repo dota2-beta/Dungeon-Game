@@ -6,16 +6,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class EntityMovedEvent {
-    private String entityId;
-    private Hex newPosition;
-    private int currentAP;
-    private List<Hex> pathToAnimate;
-    private boolean reachedTarget;
+public class AbilityCastedEvent {
+    private String casterId;
+    private String abilityTemplateId;
+    private Hex targetHex;
+    // private List<String> targetIds;
 }

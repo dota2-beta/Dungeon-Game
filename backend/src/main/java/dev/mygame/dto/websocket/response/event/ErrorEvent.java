@@ -13,6 +13,6 @@ public class ErrorEvent {
 
     public ErrorEvent(String message) {
         this.message = message;
-        this.errorCode = null; // По умолчанию кода нет
+        this.errorCode = null;
     }
 }

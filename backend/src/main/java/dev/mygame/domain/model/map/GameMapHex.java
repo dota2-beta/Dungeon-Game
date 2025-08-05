@@ -1,13 +1,27 @@
 package dev.mygame.domain.model.map;
 
+import lombok.Builder;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 
 import java.util.*;
 
-@NoArgsConstructor
+@Getter
 public class GameMapHex {
-    private final Map<Hex, Tile> tiles = new HashMap<>();
+    private final Map<Hex, Tile> tiles;
+    private final List<Hex> playerSpawnPoints;
+    private final List<Hex> monsterSpawnPoints;
+
+    private int nextPlayerSpawnIndex = 0;
+
+    @Builder
+    public GameMapHex(Map<Hex, Tile> tiles, List<Hex> playerSpawnPoints, List<Hex> monsterSpawnPoints) {
+        this.tiles = (tiles != null) ? tiles : new HashMap<>();
+        this.playerSpawnPoints = (playerSpawnPoints != null) ? playerSpawnPoints : new ArrayList<>();
+        this.monsterSpawnPoints = (monsterSpawnPoints != null) ? monsterSpawnPoints : new ArrayList<>();
+    }
+
 
     public Tile getTile(Hex hex) {
         return this.tiles.get(hex);
@@ -106,5 +120,22 @@ public class GameMapHex {
         Collections.reverse(path);
         //path.remove(0);
         return path;
+    }
+
+    /**
+     * Возвращает следующую доступную точку спавна для игрока.
+     * Если точки кончились, начинает сначала (циклически).
+     * @return Координата для спавна.
+     */
+    public Hex getAvailablePlayerSpawnPoint() {
+        if (playerSpawnPoints == null || playerSpawnPoints.isEmpty()) {
+            // если на карте нет точек 'P'
+            throw new IllegalStateException("No player spawn points defined on the map!");
+            // return new Hex(0, 0);
+        }
+
+        Hex spawnPoint = playerSpawnPoints.get(nextPlayerSpawnIndex);
+        nextPlayerSpawnIndex = (nextPlayerSpawnIndex + 1) % playerSpawnPoints.size();
+        return spawnPoint;
     }
 }

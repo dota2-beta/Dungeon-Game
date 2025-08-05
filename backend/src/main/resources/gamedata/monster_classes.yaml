@@ -1,0 +1,33 @@
+monster-classes:
+  - templateId: "goblin_warrior"
+    name: "Goblin Warrior"
+    stats:
+      maxHp: 35
+      attack: 8
+      defense: 2
+      initiative: 12
+      maxAP: 6
+      attackRange: 1
+      aggroRadius: 5
+
+  - templateId: "orc_brute"
+    name: "Orc Brute"
+    stats:
+      maxHp: 80
+      attack: 15
+      defense: 5
+      initiative: 8
+      maxAP: 4
+      attackRange: 1
+      aggroRadius: 4
+
+  - templateId: "lich_king_boss"
+    name: "The Lich King"
+    stats:
+      maxHp: 500
+      attack: 25
+      defense: 10
+      initiative: 15
+      maxAP: 8
+      attackRange: 3
+      aggroRadius: 10

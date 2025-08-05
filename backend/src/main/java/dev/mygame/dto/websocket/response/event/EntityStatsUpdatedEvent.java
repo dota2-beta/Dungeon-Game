@@ -17,4 +17,5 @@ public class EntityStatsUpdatedEvent {
     private int currentHp;
     private int currentDefense;
     private boolean isDead;
+    private Integer healToHp;
 }

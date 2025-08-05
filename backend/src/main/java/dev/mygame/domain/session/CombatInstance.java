@@ -1,5 +1,6 @@
 package dev.mygame.domain.session;
 
+import dev.mygame.dto.websocket.response.AbilityCooldownDto;
 import dev.mygame.dto.websocket.response.event.CombatNextTurnEvent;
 import dev.mygame.dto.websocket.response.event.CombatParticipantsJoinedEvent;
 import dev.mygame.dto.websocket.response.event.EntityTurnEndedEvent;
@@ -30,7 +31,7 @@ public class CombatInstance implements DeathListener {
 
     private Map<String, Set<Entity>> teams = new HashMap<>();
 
-    private List<String> turnOrder = new ArrayList<>(); // Вместо Queue<String>
+    private List<String> turnOrder = new ArrayList<>();
     private int currentTurnIndex = -1;
     private String currentTurnEntityId;
 
@@ -80,7 +81,6 @@ public class CombatInstance implements DeathListener {
      * Инициализирует очередь ходов, когда нет явного инициатора.
      * Все участники сортируются по инициативе.
      */
-    // В классе CombatInstance.java
 
     private void initializeTurnOrder() {
         List<Entity> allParticipants = new ArrayList<>();
@@ -111,7 +111,6 @@ public class CombatInstance implements DeathListener {
         this.teams.values().forEach(team ->
                 team.stream()
                         .filter(Entity::isAlive)
-                        // ВАЖНО: Исключаем самого инициатора из этого списка
                         .filter(entity -> !entity.getId().equals(initiator.getId()))
                         .forEach(otherParticipants::add)
         );
@@ -133,11 +132,13 @@ public class CombatInstance implements DeathListener {
     private void startNextTurn() {
         if (this.currentTurnIndex != -1) {
             this.currentTurnIndex++;
-        }
-         else {
+        } else {
             this.currentTurnIndex = 0;
         }
 
+//        this.teams.values().stream()
+//                .flatMap(Collection::stream)
+//                .forEach(Entity::reduceAllCooldowns);
 
         if (currentTurnIndex >= this.turnOrder.size()) {
             initializeTurnOrder();
@@ -156,6 +157,7 @@ public class CombatInstance implements DeathListener {
             startNextTurn();
             return;
         }
+        nextEntity.reduceAllCooldowns();
 
         if (hasTakenFirstTurn.contains(currentEntityId)) {
             int restoredAP = Math.min(
@@ -168,11 +170,20 @@ public class CombatInstance implements DeathListener {
             nextEntity.setCurrentAP(startingAP);
             hasTakenFirstTurn.add(currentEntityId);
         }
+        List<AbilityCooldownDto> currentAbilityCooldowns = nextEntity.getAbilities().stream()
+                .map(abilityInstance -> AbilityCooldownDto.builder()
+                        .turnCooldown(abilityInstance.getTurnCooldown())
+                        .cooldownEndTime(abilityInstance.getCooldownEndTime())
+                        .abilityTemplateId(abilityInstance.getTemplate().getTemplateId())
+                        .build())
+                .toList();
+
 
         CombatNextTurnEvent nextTurnEvent = CombatNextTurnEvent.builder()
                 .combatId(this.combatId)
                 .currentTurnEntityId(getCurrentTurnEntityId())
-                .currentAp(nextEntity.getCurrentAP())
+                .currentAP(nextEntity.getCurrentAP())
+                .abilityCooldowns(currentAbilityCooldowns)
                 .build();
         this.gameSession.publishUpdate("combat_next_turn", nextTurnEvent);
     }
@@ -227,15 +238,13 @@ public class CombatInstance implements DeathListener {
         this.endListeners.remove(combatEndListener);
     }
 
-    private void notifyCombatEndListeners(CombatOutcome combatOutcome, String forTeamId) {
+    private void notifyCombatEndListeners(CombatOutcome combatOutcome, String winningTeamId, List<Entity> allParticipants) {
         if (this.endListeners == null || this.endListeners.isEmpty()) {
             return;
         }
-
         List<CombatEndListener> listeners = new ArrayList<>(this.endListeners);
-
         for (CombatEndListener listener : listeners) {
-            listener.onCombatEnded(this, combatOutcome, forTeamId);
+            listener.onCombatEnded(this, combatOutcome, winningTeamId, allParticipants);
         }
     }
 
@@ -262,26 +271,20 @@ public class CombatInstance implements DeathListener {
     }
 
     private void endCombatForAll() {
-        if (this.isFinished) return; // Защита от двойного вызова
+        if (this.isFinished) return;
         this.isFinished = true;
-        log.info("--- Combat {} is ending for all participants. ---", this.combatId);
+
+        List<Entity> allParticipants = this.teams.values().stream()
+                .flatMap(Set::stream)
+                .toList();
 
         String winningTeamId = findWinningTeam();
         CombatOutcome finalOutcome = (winningTeamId != null) ? CombatOutcome.VICTORY : CombatOutcome.DEFEAT;
 
-        this.teams.values().forEach(team -> {
-            team.forEach(entity -> {
-                entity.removeDeathListener(this);
-                if(entity.isAlive())
-                    entity.setState(EntityStateType.EXPLORING);
-            });
-        });
-
-        notifyCombatEndListeners(finalOutcome, winningTeamId);
+        notifyCombatEndListeners(finalOutcome, winningTeamId, allParticipants);
 
         this.teams.clear();
         this.turnOrder.clear();
-
     }
 
     private String findWinningTeam() {

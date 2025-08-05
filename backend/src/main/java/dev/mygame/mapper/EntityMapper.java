@@ -1,5 +1,7 @@
 package dev.mygame.mapper;
 
+import dev.mygame.domain.session.AbilityInstance;
+import dev.mygame.dto.websocket.response.AbilityCooldownDto;
 import dev.mygame.dto.websocket.response.MonsterStateDto;
 import dev.mygame.dto.websocket.response.PlayerStateDto;
 import dev.mygame.dto.websocket.response.EntityStateDto;
@@ -11,6 +13,9 @@ import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface EntityMapper {
+    @Mapping(source = "template.templateId", target = "abilityTemplateId")
+    AbilityCooldownDto toAbilityCooldownDto(AbilityInstance instance);
+
     @Mapping(target = "type", constant = "PLAYER")
     @Mapping(source = "dead", target = "isDead")
     PlayerStateDto toPlayerState(Player player);

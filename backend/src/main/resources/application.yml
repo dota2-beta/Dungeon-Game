@@ -1,6 +1,11 @@
 spring:
   application:
     name: MyGame
+  config:
+    import:
+      - "classpath:gamedata/player_classes.yml"
+      - "classpath:gamedata/monster_classes.yaml"
+      - "classpath:gamedata/abilities.yaml"
 game:
   settings:
     default-entity-max-ap: 8

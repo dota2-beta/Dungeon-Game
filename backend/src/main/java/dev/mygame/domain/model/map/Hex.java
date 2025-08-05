@@ -1,16 +1,19 @@
 package dev.mygame.domain.model.map;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
 import java.util.Objects;
 
 @Data
-@RequiredArgsConstructor
+@NoArgsConstructor
+@AllArgsConstructor
 public class Hex {
-    private final int q;
-    private final int r;
+    private int q;
+    private int r;
 
     public static final List<Hex> DIRECTIONS = List.of(
             new Hex(1, 0),
@@ -22,9 +25,9 @@ public class Hex {
     );
 
     /**
-     * Возвращает соседа в заданном направлении.
-     * @param direction Индекс направления от 0 до 5.
-     * @return Координата соседа.
+     * Возвращает соседа в заданном направлении
+     * @param direction Индекс направления от 0 до 5
+     * @return Координата соседа
      */
     public Hex getNeighbor(int direction) {
         return this.add(DIRECTIONS.get(direction));

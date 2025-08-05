@@ -1,10 +1,12 @@
 package dev.mygame.service;
 
 import dev.mygame.config.MapGenerationProperties;
+import dev.mygame.data.MapLoader;
 import dev.mygame.domain.model.map.*;
 import dev.mygame.enums.TileType;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -12,20 +14,23 @@ import java.util.List;
 import java.util.Random;
 
 @Component
-@NoArgsConstructor
+@RequiredArgsConstructor
 public class MapGenerator {
     private final Random random = new Random();
+    private final MapLoader mapLoader;
 
     public GameMapHex generateHexBattleArena(MapGenerationProperties props) {
-        GameMapHex map = new GameMapHex();
+        //GameMapHex map = new GameMapHex();
+        GameMapHex map = GameMapHex.builder().build();
         int radius = props.getBattleArenaRadius();
         System.out.println("--- GENERATING ARENA WITH RADIUS: " + radius + " ---");
 
         for (int q = -radius; q <= radius; q++) {
             for (int r = -radius; r <= radius; r++) {
                 Hex hex = new Hex(q, r);
+                TileType type = random.nextInt(10) <= 2 ? TileType.WALL : TileType.FLOOR;
                 if (hex.distanceTo(new Hex(0, 0)) <= radius) {
-                    map.setTile(hex, new Tile(TileType.FLOOR, null));
+                    map.setTile(hex, new Tile(type, null));
                 }
             }
         }
@@ -33,7 +38,7 @@ public class MapGenerator {
     }
 
     public GameMapHex generateHexDungeon(int mapRadius, int numCaverns, int cavernSize) {
-        GameMapHex gameMapHex = new GameMapHex();
+        GameMapHex gameMapHex = GameMapHex.builder().build();
         List<Hex> roomCenters = new ArrayList<>();
 
         for(int i = 0; i < numCaverns; ++i) {
@@ -59,7 +64,6 @@ public class MapGenerator {
     }
 
     private void drawHexLine(GameMapHex gameMapHex, Hex hex1, Hex hex2) {
-
     }
 
     private void createCavern(GameMapHex gameMapHex, Hex startHex, int numSteps) {

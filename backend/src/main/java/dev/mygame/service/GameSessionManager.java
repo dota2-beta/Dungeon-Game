@@ -3,10 +3,14 @@ package dev.mygame.service;
 import dev.mygame.config.GameSettings;
 import dev.mygame.config.MapGenerationProperties;
 import dev.mygame.config.WebSocketDestinations;
+import dev.mygame.data.MapLoader;
+import dev.mygame.domain.factory.EntityFactory;
 import dev.mygame.domain.model.map.GameMapHex;
 import dev.mygame.domain.model.map.Hex;
 import dev.mygame.dto.websocket.request.PlayerAction;
+import dev.mygame.dto.websocket.response.AbilityCooldownDto;
 import dev.mygame.dto.websocket.response.GameSessionStateDto;
+import dev.mygame.dto.websocket.response.PlayerStateDto;
 import dev.mygame.enums.EntityStateType;
 import dev.mygame.domain.model.Entity;
 import dev.mygame.domain.model.GameObject;
@@ -40,6 +44,7 @@ public class GameSessionManager implements GameSessionEndListener {
     private final GameSettings gameSettings;
     private final MapGenerationProperties props;
     private final MapGenerator mapGenerator;
+    private final MapLoader mapLoader;
     private final GameDataLoader gameDataLoader;
 
     private final GameSessionMapper gameSessionMapper;
@@ -47,18 +52,23 @@ public class GameSessionManager implements GameSessionEndListener {
     private final EntityActionMapper entityActionMapper;
 
     private final FactionService factionService;
+    private final AbilityService abilityService;
+    private final EntityFactory entityFactory;
 
     private static final Logger log = LoggerFactory.getLogger(GameSessionManager.class);
     private final ScheduledExecutorService scheduler;
 
     @Autowired
     public GameSessionManager(SimpMessagingTemplate messagingTemplate, GameSettings gameSettings, MapGenerationProperties props,
-                              MapGenerator mapGenerator, GameDataLoader gameDataLoader, GameSessionMapper gameSessionMapper, EntityMapper entityMapper, EntityActionMapper entityActionMapper, FactionService factionService, ScheduledExecutorService scheduler) {
+                              MapGenerator mapGenerator, MapLoader mapLoader, GameDataLoader gameDataLoader, GameSessionMapper gameSessionMapper, EntityMapper entityMapper, EntityActionMapper entityActionMapper, FactionService factionService, AbilityService abilityService, EntityFactory entityFactory, ScheduledExecutorService scheduler) {
         this.props = props;
+        this.mapLoader = mapLoader;
         this.gameSessionMapper = gameSessionMapper;
         this.entityMapper = entityMapper;
         this.entityActionMapper = entityActionMapper;
         this.factionService = factionService;
+        this.abilityService = abilityService;
+        this.entityFactory = entityFactory;
         this.scheduler = scheduler;
         this.activeSessions = new ConcurrentHashMap<>();
         this.messagingTemplate = messagingTemplate;
@@ -69,8 +79,15 @@ public class GameSessionManager implements GameSessionEndListener {
 
     public String createSession() {
         String sessionId = UUID.randomUUID().toString();
-        //GameMap gameMap = mapGenerator.generateDungeon();
-        GameMapHex gameMapHex = mapGenerator.generateHexBattleArena(props);
+        //GameMapHex gameMapHex = mapGenerator.generateHexBattleArena(props);
+        GameMapHex gameMapHex;
+        try {
+            gameMapHex = mapLoader.loadMapFromFile("gamedata/maps/dungeon_level_1.txt");
+        } catch (Exception e) {
+            log.error("Failed to load map file!", e);
+            gameMapHex = mapGenerator.generateHexBattleArena(props);;
+            throw new RuntimeException("Could not create game session, map failed to load.", e);
+        }
 
         Map<String, Entity> initialEntities = new ConcurrentHashMap<>();
         Map<String, GameObject> initialGameObjects = new ConcurrentHashMap<>();
@@ -85,13 +102,13 @@ public class GameSessionManager implements GameSessionEndListener {
                 .gameObjects(initialGameObjects)
                 .factionService(factionService)
                 .entityMapper(entityMapper)
+                .abilityService(abilityService)
                 .build();
         gameSession.addGameSessionEndListener(this);
 
         // TODO: Добавить игроков (Player сущностей) в GameSession, если они еще не добавлены в initialEntities
         // gameSession.addPlayer(userId, ...); // Метод в GameSession
 
-        // Добавить новую сессию в Map активных сессий
         activeSessions.put(sessionId, gameSession);
 
         // TODO: Возможно, выполнить дополнительные действия после создания сессии
@@ -99,7 +116,7 @@ public class GameSessionManager implements GameSessionEndListener {
         return sessionId;
     }
 
-    public void joinPlayer(String userId, String sessionId, String webSocketSessionId) {
+    public void joinPlayer(String userId, String sessionId, String websocketSessionId) {
         GameSession gameSession = activeSessions.get(sessionId);
 
         if (gameSession == null) {
@@ -115,41 +132,14 @@ public class GameSessionManager implements GameSessionEndListener {
              // найти существующего игрока, обновить его websocketSessionId и отправить состояние.
              //throw new IllegalArgumentException("User " + userId + " is already in session " + sessionId);
          }
+        GameMapHex gameMap = gameSession.getGameMap();
 
-        String entityId = UUID.randomUUID().toString();
-
-        Hex startPosition = new Hex(0, 0);
+        String playerClassId = "warrior"; // TODO: переделать, чтобы принималось от клиента
+        Hex startPosition = gameMap.getAvailablePlayerSpawnPoint();
 
         //Point startPosition = gameSession.getGameMap().getSpawnPoint();
+        Player player = entityFactory.createPlayer(playerClassId, userId, websocketSessionId, startPosition);
 
-        int baseMaxHp = 100;
-        int baseAttack = 10;
-        int baseDefense = 5;
-        int baseInitiative = 10;
-        int baseMaxAp = 8;
-        int baseCurrentAp = 6;
-        int baseAttackRange = 1;
-        EntityStateType initialState = EntityStateType.EXPLORING;
-//        List<DeathListener> deathListeners = new ArrayList<>();
-//        List<Item> initialInventory = new ArrayList<>();
-
-        Player player = Player.builder()
-                .id(entityId)
-                .position(startPosition)
-                .maxHp(baseMaxHp)
-                .currentHp(baseMaxHp)
-                .attack(baseAttack)
-                .defense(baseDefense)
-                .initiative(baseInitiative)
-                .maxAP(baseMaxAp)
-                .currentAP(baseCurrentAp)
-                .attackRange(baseAttackRange)
-                .state(initialState)
-                .userId(userId)
-                .websocketSessionId(webSocketSessionId)
-                .teamId(null)
-                .aggroRadius(0)
-                .build();
         gameSession.addEntity(player);
 
         sendInitialStateToPlayer(gameSession, userId);
@@ -174,8 +164,6 @@ public class GameSessionManager implements GameSessionEndListener {
                 userId,
                 props.getBattleArenaRadius()
         );
-
-        //GameSessionStateDto stateDto = gameSessionMapper.toGameSessionState(gameSession, context);
 
         messagingTemplate.convertAndSendToUser(
                 userId,

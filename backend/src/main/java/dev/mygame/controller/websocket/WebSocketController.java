@@ -1,10 +1,12 @@
 package dev.mygame.controller.websocket;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.mygame.dto.websocket.request.InviteToTeamRequest;
 import dev.mygame.dto.websocket.request.JoinRequest;
 import dev.mygame.dto.websocket.request.PlayerAction;
 import dev.mygame.dto.websocket.request.RespondToTeamRequest;
 import dev.mygame.service.GameSessionManager;
+import dev.mygame.service.internal.EntityAction;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -25,6 +27,7 @@ public class WebSocketController {
 
     private final GameSessionManager gameSessionManager;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ObjectMapper objectMapper;
 
     @MessageMapping("/join-session")
     public void onJoinSession(@Payload JoinRequest joinRequest, SimpMessageHeaderAccessor headerAccessor, Principal principal) {
@@ -36,6 +39,7 @@ public class WebSocketController {
         try {
             gameSessionManager.joinPlayer(userId, sessionId, websocketSessionId);
         } catch (Exception e) {
+            log.error("Error joining player {} to session {}:", userId, sessionId, e);
         }
     }
 
@@ -63,7 +67,7 @@ public class WebSocketController {
                     "status", "success",
                     "sessionId", sessionId
             );
-            messagingTemplate.convertAndSendToUser(userId, "/queue/create-session-response", response); // Используем личный топик
+            messagingTemplate.convertAndSendToUser(userId, "/queue/create-session-response", response);
         } catch (Exception e) {
             log.error("Error creating game session for user: {}", userId, e);
 

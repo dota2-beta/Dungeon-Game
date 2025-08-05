@@ -4,6 +4,8 @@ import dev.mygame.domain.model.map.Hex;
 import dev.mygame.enums.EntityStateType;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class EntityStateDto {
     public String id;
@@ -16,4 +18,5 @@ public class EntityStateDto {
     public int maxAP;
     public String type; // игрок или монстр
     public boolean isDead;
+    private List<AbilityCooldownDto> abilities;
 }

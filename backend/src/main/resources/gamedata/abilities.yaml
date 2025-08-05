@@ -1,0 +1,23 @@
+abilities:
+  - templateId: "fireball"
+    name: "fireball"
+    description: "fireball"
+    costAp: 3
+    cooldown: 2
+    range: 5
+    targetType: "ENEMY"
+    areaOfEffectRadius: 1
+    effects:
+      - type: "DAMAGE"
+        amount: 35
+        damageType: "FIRE"
+  - templateId: "lesser_heal"
+    name: "Lesser Heal"
+    description: "Restores a small amount of health to an ally."
+    costAp: 3
+    cooldown: 2
+    range: 5
+    areaOfEffectRadius: 0
+    effects:
+      - type: "HEAL"
+        amount: 40

@@ -1,15 +1,19 @@
 package dev.mygame.domain.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import dev.mygame.data.templates.AbilityTemplate;
+import dev.mygame.domain.session.AbilityInstance;
 import dev.mygame.service.internal.DamageResult;
 import dev.mygame.enums.EntityStateType;
 import dev.mygame.domain.event.DeathListener;
+import dev.mygame.service.internal.HealResult;
 import jakarta.annotation.Nullable;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -26,6 +30,9 @@ public abstract class Entity extends GameMapObject {
     private int maxAP;
     private int initiative;
     private int aggroRadius;
+
+    @Getter
+    private List<AbilityInstance> abilities;
 
     protected String teamId; // Id команды, к которой принадлежит Entity
     protected String websocketSessionId;
@@ -72,6 +79,18 @@ public abstract class Entity extends GameMapObject {
         return new DamageResult(damage, absorbedByArmor, damageToHp, this.isDead);
     }
 
+    public HealResult takeHeal(int healAmount) {
+        if (this.isDead || healAmount <= 0) {
+            return new HealResult(0, this.currentHp);
+        }
+        int oldHp = this.currentHp;
+        int newHp = this.currentHp + healAmount;
+        this.currentHp = Math.min(newHp, this.maxHp);
+        int actualHealedAmount = this.currentHp - oldHp;
+
+        return new HealResult(actualHealedAmount, this.currentHp);
+    }
+
     public boolean isAlive(){
         return this.currentHp > 0;
     }
@@ -97,5 +116,12 @@ public abstract class Entity extends GameMapObject {
             listener.onEntityDied(this);
         }
         this.deathListener.clear();
+    }
+
+    public void reduceAllCooldowns() {
+        if(abilities.isEmpty())
+            return;
+        for(AbilityInstance ability : abilities)
+            ability.reduceTurnCooldown();
     }
 }
