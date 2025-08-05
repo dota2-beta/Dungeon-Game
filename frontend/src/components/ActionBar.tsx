@@ -1,4 +1,3 @@
-// src/components/ActionBar.tsx
 import React from 'react';
 import { useGame } from '../context/GameContext';
 import { publish } from '../api/websocketService';
@@ -27,11 +26,6 @@ const ActionBar: React.FC = () => {
 
     return (
         <div style={{
-            position: 'absolute',
-            bottom: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 110,
             display: 'flex',
             alignItems: 'center',
             gap: '20px',

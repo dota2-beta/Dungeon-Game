@@ -43,6 +43,16 @@ export interface TileDto {
     type: TileType;
 }
 
+/**
+ * Описывает состояние одной способности у конкретной сущности.
+ * Это то, что будет лежать в "ячейке" заклинаний.
+ */
+export interface AbilityStateDto {
+    abilityTemplateId: string;      // ID шаблона
+    turnCooldown: number;      // Текущий кулдаун в ходах
+    cooldownEndTime: number;   // Временная метка в мс, когда КД закончится
+}
+
 
 // =================================================================
 // State DTOs (DTO для описания состояний)
@@ -73,6 +83,7 @@ export interface EntityStateDto {
     type: 'PLAYER' | 'MONSTER';
     dead: boolean;
     teamId?: string;
+    abilities: AbilityStateDto[];
 }
 
 /**
@@ -109,7 +120,7 @@ export interface GameSessionStateDto {
 export interface EntityMovedEvent {
     entityId: string;
     newPosition: Hex;
-    currentAp?: number;
+    currentAP?: number;
     pathToAnimate?: Hex[];
 }
 
@@ -122,11 +133,33 @@ export interface EntityAttackEvent {
 
 export interface EntityStatsUpdatedEvent {
     targetEntityId: string;
-    damageToHp: number;
+    damageToHp?: number; 
+    healToHp?: number;  
     currentHp: number;
     absorbedByArmor?: number;
     currentDefense?: number;
     dead: boolean;
+}
+
+/**
+ * Событие: Способность была использована.
+ * Сигнал для рендерера, чтобы проиграть анимацию.
+ */
+export interface AbilityCastedEvent {
+    casterId: string;
+    abilityTemplateId: string;
+    targetHex: Hex;
+}
+
+/**
+ * Событие: Состояние кастера обновилось после использования способности.
+ * Сигнал для UI, чтобы обновить AP и кулдауны на панели действий.
+ * // --- ДОБАВЛЕНО ---
+ */
+export interface CasterStateUpdatedEvent {
+    casterId: string;
+    newCurrentAP: number;
+    abilityCooldowns: AbilityStateDto[];
 }
 
 export interface PlayerJoinedEvent {
@@ -147,13 +180,13 @@ export interface CombatStartedEvent {
     combatInitiatorId: string;
     teams: { teamId: string; memberIds: string[] }[];
     initialTurnOrder: string[];
-    combatants: EntityStateDto[];
 }
 
 export interface CombatNextTurnEvent {
     combatId: string;
     currentTurnEntityId: string;
-    currentAp: number;
+    currentAP: number;
+    abilityCooldowns: AbilityStateDto[];
 }
 
 export interface TeamInviteEvent {
@@ -172,9 +205,10 @@ export interface TeamUpdatedEvent {
 // =================================================================
 
 export interface PlayerAction {
-    actionType: 'MOVE' | 'ATTACK' | 'END_TURN'; // Упрощаем для начала
+    actionType: 'MOVE' | 'ATTACK' | 'END_TURN' | 'CAST_SPELL'; // --- ИЗМЕНЕНО ---
     targetId?: string;
     targetHex?: Hex;
+    abilityId?: string; // --- ДОБАВЛЕНО (ID шаблона используемой способности) ---
 }
 
 

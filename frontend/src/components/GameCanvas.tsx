@@ -59,6 +59,18 @@ const GameCanvas: React.FC = () => {
         }
     }, []);
 
+    useEffect(() => {
+        const castInfo = gameState.lastAbilityCast;
+
+        if (castInfo && rendererRef.current) {
+            console.log("GameCanvas: Detected ability cast event, running animation.");
+            
+            rendererRef.current.playAbilityAnimation(castInfo.payload);
+            
+            setTimeout(() => dispatch({ type: 'CLEAR_ABILITY_ANIMATION' }), 0);
+        }
+    }, [gameState.lastAbilityCast, dispatch]);
+
     return <div ref={canvasRef} style={{ cursor: 'default' }} />;
 };
 

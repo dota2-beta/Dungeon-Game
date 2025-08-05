@@ -1,9 +1,10 @@
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
-import type { GameSessionStateDto, PlayerAction, EntityStateDto, EntityStatsUpdatedEvent, Hex, EntityMovedEvent, TileDto } from '../types/dto';
+import type { GameSessionStateDto, PlayerAction, EntityStateDto, EntityStatsUpdatedEvent, Hex, EntityMovedEvent, TileDto, AbilityCastedEvent } from '../types/dto';
 import { publish } from '../api/websocketService';
 import { gsap } from 'gsap';
 import { Grid, AStarFinder } from 'pathfinding';
 import { Pathfinder } from '../game/Pathfinder';
+import type { ExtendedGameSessionState } from '../context/GameContext';
 
 const HEX_SIZE = 24;
 
@@ -46,6 +47,18 @@ const HEX_DIRECTIONS = [
     { q: -1, r: 0 }, { q: -1, r: 1 }, { q: 0, r: 1 }
 ];
 const hexAdd = (a: Hex, b: Hex): Hex => ({ q: a.q + b.q, r: a.r + b.r });
+
+const getHexesInRange = (center: Hex, radius: number): Hex[] => {
+    const results: Hex[] = [];
+    for (let dx = -radius; dx <= radius; dx++) {
+        for (let dy = Math.max(-radius, -dx - radius); dy <= Math.min(radius, -dx + radius); dy++) {
+            const dz = -dx - dy;
+            results.push(hexAdd(center, { q: dx, r: dy }));
+        }
+    }
+    return results;
+};
+
 const getNeighbor = (hex: Hex, direction: number): Hex => hexAdd(hex, HEX_DIRECTIONS[direction]);
 
 export class GameRenderer {
@@ -65,6 +78,9 @@ export class GameRenderer {
     private isMovingAlongPath = false;
     private movementQueue: Hex[] = [];
     private isExecutingMove = false;
+    private selectedAbilityId: string | null = null;
+    private hoveredHex: Hex | null = null;
+    private aoeHighlightGraphics: Graphics | null = null;
 
     constructor(container: HTMLDivElement) {
         this.canvasContainer = container;
@@ -85,6 +101,12 @@ export class GameRenderer {
             this.entityContainer = new Container();
             this.uiContainer = new Container();
             this.worldContainer.addChild(this.tileContainer, this.entityContainer, this.uiContainer);
+
+            this.aoeHighlightGraphics = new Graphics();
+            this.uiContainer.addChild(this.aoeHighlightGraphics);
+            
+            this.app.ticker.add(this.gameLoop.bind(this));
+
             this.app.stage.addChild(this.worldContainer);
             this.worldContainer.position.set(canvasWidth / 2, canvasHeight / 2);
 
@@ -103,25 +125,35 @@ export class GameRenderer {
             this.drawMap();
             this.drawEntities();
 
-            const center: Hex = { q: 0, r: 0 };
-            console.log("%c--- CLIENT-SIDE NEIGHBORS for (0,0) ---", "color: yellow");
-            for (let i = 0; i < 6; i++) {
-                const neighbor = getNeighbor(center, i);
-                console.log(`%cDirection ${i}: q=${neighbor.q}, r=${neighbor.r}`, "color: yellow");
+            const player = initialState.entities.find(e => e.id === initialState.yourPlayerId);
+        
+            if (player) {
+                console.log(`Centering camera on player at [q:${player.position.q}, r:${player.position.r}]`);
+                this.centerCameraOn(player.position, false);
             }
-            console.log("%c------------------------------------", "color: yellow");
             }
     }
 
-    public update(newState: GameSessionStateDto) {
+    public update(newState: ExtendedGameSessionState) {
         if (!this.app) {
             if (newState.mapState?.tiles.length > 0) {
                 this.init(newState);
             }
             return;
         }
+        const newSelectedId = newState.selectedAbility?.abilityTemplateId || null;
+    
+        console.log(
+            `%c[GameRenderer] update() called. Internal selectedAbilityId was '${this.selectedAbilityId}', received '${newSelectedId}'. Updating...`,
+            'color: #3498db; font-weight: bold;'
+        );
 
         this.gameState = newState;
+        this.selectedAbilityId = newState.selectedAbility?.abilityTemplateId || null;
+
+        if (this.selectedAbilityId) {
+            console.log('GameRenderer updated. Selected ability is now:', this.selectedAbilityId);
+        }
         this.drawEntities();
     }
     
@@ -130,43 +162,57 @@ export class GameRenderer {
         this.worldContainer.interactive = true;
         
         this.worldContainer.on('pointerdown', (event) => {
-            if (!this.gameState || this.movementQueue.length > 0) return; 
+            console.log('--- Pointer Down Event ---');
+            console.log('Selected ability at time of click:', this.selectedAbilityId);
 
-            const player = this.gameState.entities.find((e: EntityStateDto) => e.id === this.gameState!.yourPlayerId);
+            if (!this.gameState) return;
+            const player = this.gameState.entities.find(e => e.id === this.gameState!.yourPlayerId);
             if (!player) return;
-
+        
             const pos = event.data.getLocalPosition(this.worldContainer!);
             const targetHex = pixelToHex(pos.x, pos.y);
-            
-            const targetEntity = this.gameState.entities.find((e: EntityStateDto) => e.position.q === targetHex.q && e.position.r === targetHex.r);
-
-            if (targetEntity && targetEntity.id !== player.id && !targetEntity.dead) {
-                publish(`/app/session/${this.gameState.sessionId}/action`, { actionType: 'ATTACK', targetId: targetEntity.id });
-            } else {
-                this.handleMoveRequest(player, targetHex);
-            }
-        });
         
-        this.worldContainer.on('pointermove', (event) => {
-            if (!this.app || !this.gameState) return;
-            const pos = event.data.getLocalPosition(this.worldContainer!);
-            const hoveredHex = pixelToHex(pos.x, pos.y);
+            if (this.selectedAbilityId) {
+                console.log(`SUCCESS: Publishing CAST_SPELL with abilityId: '${this.selectedAbilityId}'`);
+                publish(`/app/session/${this.gameState.sessionId}/action`, {
+                    actionType: 'CAST_SPELL',
+                    abilityId: this.selectedAbilityId,
+                    targetHex: targetHex
+                });
+                
+                this.canvasContainer.style.cursor = 'default';
+        
+            } else {
+                console.error(`FAILURE: Attempted to cast, but this.selectedAbilityId is NULL or UNDEFINED.`);
+                console.log("Current gameState at time of click:", this.gameState);
 
-            const targetEntity = this.gameState.entities.find((e: EntityStateDto) => e.position.q === hoveredHex.q && e.position.r === hoveredHex.r);
-            const player = this.gameState.entities.find((e: EntityStateDto) => e.id === this.gameState!.yourPlayerId);
-            
-            let newHoverId: string | null = null;
-
-            if (player && targetEntity && targetEntity.id !== player.id && !targetEntity.dead) {
-                if (hexDistance(player.position, targetEntity.position) <= player.attackRange) {
-                    newHoverId = targetEntity.id;
+                const targetEntity = this.gameState.entities.find(e => 
+                    !e.dead && 
+                    e.position.q === targetHex.q && 
+                    e.position.r === targetHex.r 
+                );
+                
+                if (targetEntity && targetEntity.id !== player.id) {
+                    publish(`/app/session/${this.gameState.sessionId}/action`, { actionType: 'ATTACK', targetId: targetEntity.id });
+                } else {
+                    this.handleMoveRequest(player, targetHex);
                 }
             }
-            
-            if (newHoverId !== this.hoveredEntityId) {
-                this.hoveredEntityId = newHoverId;
-                this.canvasContainer.style.cursor = newHoverId ? 'crosshair' : 'default';
-                this.drawEntities();
+        });
+        this.worldContainer.on('pointermove', (event) => {
+            if (!this.worldContainer) return;
+        
+            const pos = event.data.getLocalPosition(this.worldContainer);
+            const currentHoveredHex = pixelToHex(pos.x, pos.y);
+        
+            if (!this.hoveredHex || this.hoveredHex.q !== currentHoveredHex.q || this.hoveredHex.r !== currentHoveredHex.r) {
+                this.hoveredHex = currentHoveredHex;
+            }
+        
+            if (this.selectedAbilityId) {
+                this.canvasContainer.style.cursor = 'crosshair';
+            } else {
+                this.canvasContainer.style.cursor = 'default';
             }
         });
     }
@@ -181,6 +227,29 @@ export class GameRenderer {
         } else {
             console.warn("No path found.");
         }
+    }
+
+    public playAbilityAnimation(payload: AbilityCastedEvent) {
+        const casterGfx = this.entityGraphics.get(payload.casterId);
+        if (!casterGfx || !this.worldContainer) return;
+        
+        const targetPixelPos = hexToPixel(payload.targetHex);
+
+        const projectile = new Graphics();
+        projectile.beginFill(0xff00ff).drawCircle(0, 0, 8).endFill();
+        projectile.position.set(casterGfx.position.x, casterGfx.position.y);
+        this.worldContainer.addChild(projectile);
+
+        gsap.to(projectile, {
+            x: targetPixelPos.x,
+            y: targetPixelPos.y,
+            duration: 0.5,
+            ease: 'power1.in',
+            onComplete: () => {
+                this.worldContainer?.removeChild(projectile);
+                projectile.destroy();
+            }
+        });
     }
 
     private executeNextMoveStep() {
@@ -320,11 +389,12 @@ export class GameRenderer {
             ease: 'power1.inOut',
             onComplete: () => {
                 entityState.position = event.newPosition;
-                entityState.currentAP = event.currentAp ?? entityState.currentAP;
+                if (typeof event.currentAP === 'number') {
+                    entityState.currentAP = event.currentAP;
+                }
                 
-                if (isMyPlayerConfirmingStep) {
-                    this.movementQueue.shift();
-                    this.executeNextMoveStep();
+                if (event.entityId === this.gameState?.yourPlayerId) {
+                    this.centerCameraOn(event.newPosition, true);
                 }
             }
         });
@@ -386,6 +456,68 @@ export class GameRenderer {
         if (this.damagedEntityInfo && now > this.damagedEntityInfo.clearTime) {
             this.damagedEntityInfo = null;
             this.drawEntities();
+        }
+    }
+
+private gameLoop(): void {
+    if (!this.aoeHighlightGraphics || !this.gameState) {
+        return;
+    }
+
+    this.aoeHighlightGraphics.clear();
+
+    const player = this.gameState.entities.find(e => e.id === this.gameState!.yourPlayerId);
+    if (this.selectedAbilityId && this.hoveredHex && player) {
+        
+        const MOCK_ABILITY_DATA = new Map<string, { radius: number; range: number }>([
+            ["fireball",    { radius: 1, range: 6 }],
+            ["lesser_heal", { radius: 0, range: 5 }]
+        ]);
+        const abilityData = MOCK_ABILITY_DATA.get(this.selectedAbilityId);
+        const radius = abilityData?.radius ?? 0;
+        const range = abilityData?.range ?? 0;
+        
+        const distance = hexDistance(player.position, this.hoveredHex);
+        const color = distance <= range ? 0x00FF00 : 0xFF0000;
+        const hexesToHighlight = getHexesInRange(this.hoveredHex, radius);
+
+        const corners: number[] = [];
+        for (let i = 0; i < 6; i++) {
+            const angle = 2 * Math.PI / 6 * (i + 0.5); 
+            corners.push(HEX_SIZE * Math.cos(angle), HEX_SIZE * Math.sin(angle));
+        }
+
+        this.aoeHighlightGraphics.position.set(0, 0);
+
+        for (const hex of hexesToHighlight) {
+            const pixelPos = hexToPixel(hex);
+            
+            this.aoeHighlightGraphics
+                .poly(corners.map((point, index) => index % 2 === 0 ? point + pixelPos.x : point + pixelPos.y))
+                .fill({ color: color, alpha: 0.3 })
+                .stroke({ width: 1, color: color, alpha: 0.7 });
+        }
+    }
+}
+
+    private centerCameraOn(hex: Hex, smooth: boolean = false): void {
+        if (!this.app || !this.worldContainer) {
+            return;
+        }
+        const pixelPos = hexToPixel(hex);
+
+        const targetX = (this.app.screen.width / 2) - pixelPos.x;
+        const targetY = (this.app.screen.height / 2) - pixelPos.y;
+
+        if (smooth) {
+            gsap.to(this.worldContainer.position, {
+                x: targetX,
+                y: targetY,
+                duration: 0.5,
+                ease: 'power2.out', 
+            });
+        } else {
+            this.worldContainer.position.set(targetX, targetY);
         }
     }
 

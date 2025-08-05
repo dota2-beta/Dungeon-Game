@@ -13,7 +13,9 @@ import type {
     PlayerStateDto,
     CombatStartedEvent,
     CombatNextTurnEvent,
-    CombatEndedEvent
+    CombatEndedEvent,
+    CasterStateUpdatedEvent,
+    AbilityCastedEvent
 } from './types/dto';
 import GameCanvas from './components/GameCanvas';
 import PlayerHUD from './components/PlayerHUD';
@@ -21,6 +23,8 @@ import type { IFrame } from '@stomp/stompjs';
 import TurnOrder from './components/TurnOrder';
 import ActionBar from './components/ActionBar';
 import CombatOutcomeNotification from './components/CombatOutcomeNotification';
+import AbilityBar from './components/AbilityBar';
+import MainHUD from './components/MainHUD';
 
 const Game: FC = () => {
     const { gameState, dispatch, setErrorMessage } = useGame();
@@ -106,7 +110,6 @@ const Game: FC = () => {
 
                 switch (update.actionType) {
                     case 'entity_moved':
-                        console.log('Received entity_moved event:', update.payload); 
                         dispatch({ type: 'ENTITY_MOVED', payload: update.payload as EntityMovedEvent });
                         break;
                     case 'entity_attack':
@@ -122,17 +125,25 @@ const Game: FC = () => {
                         dispatch({ type: 'REMOVE_ENTITY', payload: update.payload as PlayerLeftEvent });
                         break;
                     case 'combat_started':
-                        console.log('%cDispatching COMBAT_STARTED!', 'color: blue; font-size: 14px;', update.payload);
                         dispatch({ type: 'COMBAT_STARTED', payload: update.payload as CombatStartedEvent });
                         break;
                     case 'combat_next_turn':
                         dispatch({ type: 'NEXT_TURN', payload: update.payload as CombatNextTurnEvent });
                         break;
-                        case 'combat_ended':
-                            dispatch({ type: 'COMBAT_ENDED', payload: update.payload as CombatEndedEvent });
-                            break;        
-                }
-            }
+                    case 'combat_ended':
+                        dispatch({ type: 'COMBAT_ENDED', payload: update.payload as CombatEndedEvent });
+                        break;
+
+                    // --- ДОБАВЛЕНО: Обработка новых событий ---
+                    case 'caster_state_updated':
+                        dispatch({ type: 'CASTER_STATE_UPDATED', payload: update.payload as CasterStateUpdatedEvent });
+                        break;
+                    
+                    case 'ability_casted':
+                        dispatch({ type: 'ABILITY_CASTED', payload: update.payload as AbilityCastedEvent });
+                        break;
+                        }
+                    }
         );
         
         publish('/app/join-session', { sessionId: sessionId });
@@ -268,10 +279,10 @@ const Game: FC = () => {
                                     backgroundColor: '#1d2327' 
                                 }}>
                                     <GameCanvas />
-                                    <PlayerHUD />
                                     <TurnOrder />
-                                    <ActionBar />
                                     <CombatOutcomeNotification />
+                                    <AbilityBar />
+                                    <MainHUD />
                                 </div>
                                 <p>Click on the map to move your character. Click on another character to attack.</p>
                             </>

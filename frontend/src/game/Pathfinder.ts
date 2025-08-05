@@ -1,6 +1,5 @@
 import type { EntityStateDto, Hex, MapStateDto } from '../types/dto';
 
-// --- Хелперы, специфичные для этого файла ---
 const hexAdd = (a: Hex, b: Hex): Hex => ({ q: a.q + b.q, r: a.r + b.r });
 const HEX_DIRECTIONS = [
     { q: 1, r: 0 }, { q: 1, r: -1 }, { q: 0, r: -1 },
@@ -8,7 +7,6 @@ const HEX_DIRECTIONS = [
 ];
 
 export class Pathfinder {
-    // Хранит "чистую" карту проходимости (только стены/пол)
     private baseWalkableTiles: Set<string>;
 
     constructor(mapState: MapStateDto) {

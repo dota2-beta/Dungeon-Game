@@ -2,10 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import type { PlayerStateDto } from '../types/dto';
 
-/**
- * Компонент для отображения полоски здоровья.
- * Принимает флаг isDamaged для временного изменения цвета.
- */
 const HealthBar: React.FC<{ current: number; max: number; isDamaged: boolean }> = ({ current, max, isDamaged }) => {
     const percentage = max > 0 ? (current / max) * 100 : 0;
     
@@ -32,9 +28,6 @@ const HealthBar: React.FC<{ current: number; max: number; isDamaged: boolean }> 
     );
 };
 
-/**
- * Основной компонент интерфейса игрока (HUD).
- */
 const PlayerHUD: React.FC = () => {
     const { gameState } = useGame();
     const [isDamaged, setIsDamaged] = useState(false);
@@ -100,11 +93,8 @@ const PlayerHUD: React.FC = () => {
 
     return (
         <div style={{
-            position: 'absolute',
-            bottom: '20px',
-            left: '20px',
-            width: '250px',
-            padding: '15px',
+            width: '300px',
+            padding: '10px 15px',
             backgroundColor: 'rgba(0, 0, 0, 0.7)',
             color: 'white',
             borderRadius: '10px',

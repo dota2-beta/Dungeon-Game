@@ -11,7 +11,11 @@ import {
     type EntityStateDto,
     type CombatEndedEvent,
     CombatOutcome,
-    type MonsterStateDto
+    type MonsterStateDto,
+    EntityStateType,
+    type CasterStateUpdatedEvent,
+    type AbilityCastedEvent,
+    type AbilityStateDto,
 } from '../types/dto';
 
 export interface CombatState {
@@ -24,8 +28,10 @@ export interface ExtendedGameSessionState extends GameSessionStateDto {
     lastAttack: { payload: EntityAttackEvent, timestamp: number } | null;
     lastDamage: { payload: EntityStatsUpdatedEvent, timestamp: number } | null;
     lastMove: { payload: EntityMovedEvent, timestamp: number } | null;
+    lastAbilityCast: { payload: AbilityCastedEvent, timestamp: number } | null;
     activeCombat: CombatState | null;
     combatOutcomeInfo: { message: string; outcome: CombatOutcome } | null;
+    selectedAbility: AbilityStateDto | null;
 }
 
 const initialState: ExtendedGameSessionState = {
@@ -40,8 +46,10 @@ const initialState: ExtendedGameSessionState = {
     lastAttack: null,
     lastDamage: null,
     lastMove: null,
+    lastAbilityCast: null,
     activeCombat: null,
     combatOutcomeInfo: null,
+    selectedAbility: null,
 };
 
 type GameAction =
@@ -51,12 +59,17 @@ type GameAction =
     | { type: 'ENTITY_TOOK_DAMAGE'; payload: EntityStatsUpdatedEvent } 
     | { type: 'CLEAR_COMBAT_ANIMATIONS' }
     | { type: 'CLEAR_MOVE_ANIMATION' }
-    | { type: 'ADD_NEW_ENTITY'; payload: PlayerStateDto }
+    | { type: 'ADD_NEW_ENTITY'; payload: PlayerStateDto | MonsterStateDto } 
     | { type: 'REMOVE_ENTITY'; payload: PlayerLeftEvent }
     | { type: 'COMBAT_STARTED'; payload: CombatStartedEvent }
     | { type: 'COMBAT_ENDED'; payload: CombatEndedEvent }
     | { type: 'CLEAR_COMBAT_OUTCOME' }
-    | { type: 'NEXT_TURN'; payload: CombatNextTurnEvent };
+    | { type: 'NEXT_TURN'; payload: CombatNextTurnEvent }
+    | { type: 'ABILITY_CASTED'; payload: AbilityCastedEvent }
+    | { type: 'CASTER_STATE_UPDATED'; payload: CasterStateUpdatedEvent }
+    | { type: 'CLEAR_ABILITY_ANIMATION' }
+    | { type: 'SELECT_ABILITY'; payload: AbilityStateDto } 
+    | { type: 'DESELECT_ABILITY' };
 
 const updateEntityInState = <T extends EntityStateDto>(
     entities: T[], 
@@ -70,6 +83,11 @@ const updateEntityInState = <T extends EntityStateDto>(
 
 
 const gameReducer = (state: ExtendedGameSessionState, action: GameAction): ExtendedGameSessionState => {
+    if ('payload' in action) {
+        console.log('GameContext Dispatch:', action.type, action.payload);
+    } else {
+        console.log('GameContext Dispatch:', action.type);
+    }
     switch (action.type) {
         case 'SET_INITIAL_STATE':
             return { ...initialState, ...action.payload };
@@ -80,7 +98,7 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                 entities: updateEntityInState(
                     state.entities, 
                     action.payload.entityId, 
-                    { currentAP: action.payload.currentAp } 
+                    { currentAP: action.payload.currentAP } 
                 ),
                 lastMove: { payload: action.payload, timestamp: Date.now() }
             };
@@ -101,9 +119,13 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                     if (entity.id !== action.payload.targetEntityId) {
                         return entity;
                     }
+                    const newHp = action.payload.healToHp 
+                        ? entity.currentHp + action.payload.healToHp 
+                        : action.payload.currentHp;
+
                     return {
                         ...entity,
-                        currentHp: action.payload.currentHp,
+                        currentHp: newHp > entity.maxHp ? entity.maxHp : newHp,
                         dead: action.payload.dead
                     };
                 });
@@ -127,31 +149,46 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
         case 'REMOVE_ENTITY':
             return { ...state, entities: state.entities.filter(e => e.id !== action.payload.entityId) };
 
-            case 'COMBAT_STARTED':
+        case 'COMBAT_STARTED': {
+            const combatantIds = new Set<string>(action.payload.teams.flatMap(team => team.memberIds));
+            const entitiesInCombat = state.entities.map(entity => {
+                if (combatantIds.has(entity.id)) {
+                    return { ...entity, state: EntityStateType.COMBAT };
+                }
+                return entity;
+            });
             return {
                 ...state,
+                entities: entitiesInCombat,
                 activeCombat: {
                     combatId: action.payload.combatId,
                     turnOrder: action.payload.initialTurnOrder, 
                     currentTurnEntityId: action.payload.initialTurnOrder[0],
                 }
             };
+        }
 
         case 'NEXT_TURN':
             if (!state.activeCombat || state.activeCombat.combatId !== action.payload.combatId) {
                 return state;
             }
+            const { currentTurnEntityId, currentAP, abilityCooldowns } = action.payload;
+
             return {
                 ...state,
                 entities: updateEntityInState(
-                    state.entities, 
-                    action.payload.currentTurnEntityId, 
-                    { currentAP: action.payload.currentAp }
+                    state.entities,
+                    currentTurnEntityId,
+                    {
+                        currentAP: currentAP,        
+                        abilities: abilityCooldowns,  
+                    }
                 ),
                 activeCombat: {
                     ...state.activeCombat,
-                    currentTurnEntityId: action.payload.currentTurnEntityId,
-                }
+                    currentTurnEntityId: currentTurnEntityId,
+                },
+                selectedAbility: null,
             };
 
         case 'COMBAT_ENDED': {
@@ -163,8 +200,11 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                 const message = amIVictorious ? 'VICTORY!' : 'DEFEAT';
                 const outcome = amIVictorious ? CombatOutcome.VICTORY : CombatOutcome.DEFEAT;
             
+                const entitiesAfterCombat = state.entities.map(e => e.dead ? e : { ...e, state: EntityStateType.EXPLORING });
+
                 return {
                     ...state,
+                    entities: entitiesAfterCombat,
                     activeCombat: null,
                     combatOutcomeInfo: { message, outcome }
                 };
@@ -175,6 +215,48 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                 ...state,
                 combatOutcomeInfo: null
             };
+
+        case 'CASTER_STATE_UPDATED': {
+            const { casterId, newCurrentAP, abilityCooldowns } = action.payload;
+            
+            const updatedEntities = updateEntityInState(
+                state.entities,
+                casterId,
+                {
+                    currentAP: newCurrentAP,
+                    abilities: abilityCooldowns,
+                }
+            );
+
+            return {
+                ...state,
+                entities: updatedEntities,
+            };
+        }
+
+        case 'CLEAR_ABILITY_ANIMATION': {
+            return {
+                ...state,
+                lastAbilityCast: null,
+            };
+        }
+        case 'SELECT_ABILITY': {
+            if (state.selectedAbility?.abilityTemplateId === action.payload.abilityTemplateId) {
+                return { ...state, selectedAbility: null };
+            }
+            return { ...state, selectedAbility: action.payload };
+        }
+
+        case 'DESELECT_ABILITY':
+            return { ...state, selectedAbility: null };
+    
+        case 'ABILITY_CASTED': {
+            return {
+                ...state,
+                lastAbilityCast: { payload: action.payload, timestamp: Date.now() },
+                selectedAbility: null, 
+            };
+        }
 
         default:
             return state;
