@@ -14,6 +14,7 @@ import dev.mygame.dto.websocket.response.event.*;
 import dev.mygame.enums.AbilityUseResult;
 import dev.mygame.enums.EntityStateType;
 import dev.mygame.mapper.EntityMapper;
+import dev.mygame.service.AIService;
 import dev.mygame.service.AbilityService;
 import dev.mygame.service.FactionService;
 import dev.mygame.service.internal.DamageResult;
@@ -43,7 +44,8 @@ public class GameSession implements CombatEndListener {
     private String sessionID;
     private final GameSettings gameSettings;
 
-    private Map<String, Entity> entities;
+    @Builder.Default
+    private Map<String, Entity> entities = new ConcurrentHashMap<>();
     private Map<String, GameObject> gameObjects;
 
     private GameMapHex gameMap;
@@ -54,6 +56,7 @@ public class GameSession implements CombatEndListener {
 
     private final FactionService factionService;
     private final AbilityService abilityService;
+    private final AIService aiService;
     private final EntityMapper entityMapper;
 
     // Ключ - ID приглашенного игрока, Значение - ID команды, в которую его приглашают.
@@ -215,7 +218,7 @@ public class GameSession implements CombatEndListener {
 
     }
 
-    private void endTurn(String entityId) {
+    public void endTurn(String entityId) {
         Entity entity = entities.get(entityId);
         if (entity.getState() != EntityStateType.COMBAT) {
             log.warn("Entity {} tried to end turn while not in combat.", entity.getName());
@@ -252,56 +255,112 @@ public class GameSession implements CombatEndListener {
         return null;
     }
 
+//    private void entityMove(String entityId, Hex targetHex) {
+//        Entity entity = entities.get(entityId);
+//        Player player = (entity instanceof Player) ? (Player) entity : null;
+//
+//        if (player == null) {
+//            return;
+//        }
+//        int distance = player.getPosition().distanceTo(targetHex);
+//        if (distance != 1) {
+//            sendErrorMessageToPlayer(player, "You can only move to adjacent hexes.", "MOVE_INVALID_DISTANCE");
+//            return;
+//        }
+//
+//        Tile targetTile = this.gameMap.getTile(targetHex);
+//        if (targetTile == null || !targetTile.isPassable()) {
+//            sendErrorMessageToPlayer(player, "You can't move there.", "TILE_NOT_PASSABLE");
+//            return;
+//        }
+//
+//        if (targetTile.isOccupied()) {
+//            sendErrorMessageToPlayer(player, "This tile is occupied.", "TILE_OCCUPIED");
+//            return;
+//        }
+//
+//        int moveCost = gameSettings.getDefaultMovementCost();
+//        if (player.getState() == EntityStateType.COMBAT && player.getCurrentAP() < moveCost) {
+//            sendErrorMessageToPlayer(player, "Not enough Action Points to move.", "NOT_ENOUGH_AP");
+//            return;
+//        }
+//
+//        this.gameMap.getTile(player.getPosition()).setOccupiedById(null);
+//        player.setPosition(targetHex);
+//        this.gameMap.getTile(targetHex).setOccupiedById(player.getId());
+//
+//        if (player.getState() == EntityStateType.COMBAT) {
+//            player.setCurrentAP(player.getCurrentAP() - moveCost);
+//        }
+//
+//        EntityMovedEvent movedEvent = EntityMovedEvent.builder()
+//                        .entityId(player.getId())
+//                        .newPosition(player.getPosition())
+//                        .currentAP(player.getCurrentAP())
+//                        .pathToAnimate(List.of(targetHex))
+//                        .reachedTarget(true)
+//                        .build();
+//
+//        publishUpdate("entity_moved", movedEvent);
+//        checkForCombatStart(player);
+//        if (player.getState() == EntityStateType.COMBAT) {
+//            checkAndEndTurnIfNeeded(player);
+//        }
+//    }
+
     private void entityMove(String entityId, Hex targetHex) {
         Entity entity = entities.get(entityId);
-        Player player = (entity instanceof Player) ? (Player) entity : null;
-
-        if (player == null) {
+        //Player player = (entity instanceof Player) ? (Player) entity : null;
+        if (entity == null) {
             return;
         }
-        int distance = player.getPosition().distanceTo(targetHex);
+        int distance = entity.getPosition().distanceTo(targetHex);
         if (distance != 1) {
-            sendErrorMessageToPlayer(player, "You can only move to adjacent hexes.", "MOVE_INVALID_DISTANCE");
+            if (entity instanceof Player)
+                sendErrorMessageToPlayer((Player) entity, "You can only move to adjacent hexes.", "MOVE_INVALID_DISTANCE");
             return;
         }
 
         Tile targetTile = this.gameMap.getTile(targetHex);
         if (targetTile == null || !targetTile.isPassable()) {
-            sendErrorMessageToPlayer(player, "You can't move there.", "TILE_NOT_PASSABLE");
+            if (entity instanceof Player)
+                sendErrorMessageToPlayer((Player) entity, "You can't move there.", "TILE_NOT_PASSABLE");
             return;
         }
 
         if (targetTile.isOccupied()) {
-            sendErrorMessageToPlayer(player, "This tile is occupied.", "TILE_OCCUPIED");
+            if (entity instanceof Player)
+                sendErrorMessageToPlayer((Player) entity, "This tile is occupied.", "TILE_OCCUPIED");
             return;
         }
 
         int moveCost = gameSettings.getDefaultMovementCost();
-        if (player.getState() == EntityStateType.COMBAT && player.getCurrentAP() < moveCost) {
-            sendErrorMessageToPlayer(player, "Not enough Action Points to move.", "NOT_ENOUGH_AP");
+        if (entity.getState() == EntityStateType.COMBAT && entity.getCurrentAP() < moveCost) {
+            if (entity instanceof Player)
+                sendErrorMessageToPlayer((Player) entity, "Not enough Action Points to move.", "NOT_ENOUGH_AP");
             return;
         }
 
-        this.gameMap.getTile(player.getPosition()).setOccupiedById(null);
-        player.setPosition(targetHex);
-        this.gameMap.getTile(targetHex).setOccupiedById(player.getId());
+        this.gameMap.getTile(entity.getPosition()).setOccupiedById(null);
+        entity.setPosition(targetHex);
+        this.gameMap.getTile(targetHex).setOccupiedById(entity.getId());
 
-        if (player.getState() == EntityStateType.COMBAT) {
-            player.setCurrentAP(player.getCurrentAP() - moveCost);
+        if (entity.getState() == EntityStateType.COMBAT) {
+            entity.setCurrentAP(entity.getCurrentAP() - moveCost);
         }
 
         EntityMovedEvent movedEvent = EntityMovedEvent.builder()
-                        .entityId(player.getId())
-                        .newPosition(player.getPosition())
-                        .currentAP(player.getCurrentAP())
-                        .pathToAnimate(List.of(targetHex))
-                        .reachedTarget(true)
-                        .build();
+                .entityId(entity.getId())
+                .newPosition(entity.getPosition())
+                .currentAP(entity.getCurrentAP())
+                .pathToAnimate(List.of(targetHex))
+                .reachedTarget(true)
+                .build();
 
         publishUpdate("entity_moved", movedEvent);
-        checkForCombatStart(player);
-        if (player.getState() == EntityStateType.COMBAT) {
-            checkAndEndTurnIfNeeded(player);
+        checkForCombatStart(entity);
+        if (entity.getState() == EntityStateType.COMBAT) {
+            checkAndEndTurnIfNeeded(entity);
         }
     }
 
@@ -374,7 +433,7 @@ public class GameSession implements CombatEndListener {
             attacker.setCurrentAP(attacker.getCurrentAP() - gameSettings.getDefaultAttackCost());
 
             publishAttackEvents(attacker, target, damageResult);
-            checkAndEndTurnIfNeeded(attacker);
+            //checkAndEndTurnIfNeeded(attacker);
         }
     }
 
@@ -515,7 +574,7 @@ public class GameSession implements CombatEndListener {
 
     public void startCombatWithInitiator(List<Entity> participants, Entity initiator) {
         String combatId = UUID.randomUUID().toString();
-        CombatInstance combat = new CombatInstance(combatId, this, participants, initiator);
+        CombatInstance combat = new CombatInstance(combatId, this, participants, initiator, aiService);
 
         convertAbilityCooldownByEntityStateType(EntityStateType.COMBAT, participants);
 
@@ -527,7 +586,7 @@ public class GameSession implements CombatEndListener {
 
     public void startCombatByProximity(List<Entity> participants) {
         String combatId = UUID.randomUUID().toString();
-        CombatInstance combat = new CombatInstance(combatId, this, participants);
+        CombatInstance combat = new CombatInstance(combatId, this, participants, aiService);
         convertAbilityCooldownByEntityStateType(EntityStateType.COMBAT, participants);
 
         combat.addListener(this);

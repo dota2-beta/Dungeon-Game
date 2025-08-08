@@ -14,12 +14,21 @@ public class AStarNode {
     private int hCost;
     private int fCost;
 
-    public AStarNode(Hex hex) {
+    /**
+     * Основной конструктор для создания узла.
+     * Сразу вычисляет fCost.
+     *
+     * @param hex      Координата гекса.
+     * @param parent   Предыдущий узел в пути.
+     * @param gCost    Стоимость пути от старта до этого узла.
+     * @param hCost    Эвристическая оценка расстояния до цели.
+     */
+    public AStarNode(Hex hex, AStarNode parent, int gCost, int hCost) {
         this.hex = hex;
-        this.parent = null;
-        this.gCost = 0;
-        this.hCost = 0;
-        this.fCost = 0;
+        this.parent = parent;
+        this.gCost = gCost;
+        this.hCost = hCost;
+        this.fCost = gCost + hCost; // fCost вычисляется сразу
     }
 
     /**

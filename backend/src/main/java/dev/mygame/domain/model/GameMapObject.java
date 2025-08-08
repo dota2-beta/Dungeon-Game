@@ -2,6 +2,7 @@ package dev.mygame.domain.model;
 
 import dev.mygame.domain.model.map.Hex;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 

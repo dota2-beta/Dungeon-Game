@@ -21,3 +21,25 @@ abilities:
     effects:
       - type: "HEAL"
         amount: 40
+  - template-id: "chain frost"
+    name: "chain frost"
+    description: "chain frost"
+    cost-ap: 4
+    cooldown: 6
+    range: 5
+    target-type: "ENEMY"
+    area-of-effect-radius: 3
+    effects:
+      - damage-type: "DAMAGE"
+        amount: 60
+  - template-id: "strong blow"
+    name: "strong blow"
+    description: "strong blow"
+    cost-ap: 2
+    cooldown: 1
+    range: 1
+    target-type: "ENEMY"
+    area-of-effect-radius: 0
+    effects:
+      - type: "DAMAGE"
+        amount: 25

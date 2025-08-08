@@ -14,7 +14,7 @@ public class Tile {
 
     // проходима ли клетка
     public boolean isPassable() {
-        return this.type.isWalkable() && !isOccupied();
+        return this.type.isWalkable();
     }
 
     // занята ли клетка кем-то

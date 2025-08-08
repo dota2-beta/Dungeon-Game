@@ -4,6 +4,7 @@ import dev.mygame.domain.model.map.GameMapHex;
 import dev.mygame.domain.model.map.Hex;
 import dev.mygame.domain.model.map.Tile;
 import dev.mygame.enums.TileType;
+import dev.mygame.service.internal.SpawnPointInfo;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
@@ -21,7 +22,7 @@ public class MapLoader {
         List<String> lines = readLinesFromResource(filePath);
         Map<Hex, Tile> tiles = new HashMap<>();
         List<Hex> playerSpawnPoints = new ArrayList<>();
-        List<Hex> monsterSpawnPoints = new ArrayList<>();
+        List<SpawnPointInfo> monsterSpawnPoints = new ArrayList<>();
 
         for(int row = 0; row < lines.size(); row++) {
             String line = lines.get(row);
@@ -34,7 +35,7 @@ public class MapLoader {
                 if(symbol == '-')
                     continue;
 
-                int offset = row / 2; // Целочисленное деление
+                int offset = row / 2;
                 int q = col - offset;
                 int r = row;
                 Hex hex = new Hex(q, r);
@@ -57,12 +58,15 @@ public class MapLoader {
                         isSpawnPoint = true;
                         break;
                     case 'M':
-                        monsterSpawnPoints.add(hex);
+                        monsterSpawnPoints.add(new SpawnPointInfo(hex, 'M'));
                         isSpawnPoint = true;
                         break;
                     case 'B':
-                        // отдельный список для боссов
-                        monsterSpawnPoints.add(hex);
+                        monsterSpawnPoints.add(new SpawnPointInfo(hex, 'B'));
+                        isSpawnPoint = true;
+                        break;
+                    case 'G':
+                        monsterSpawnPoints.add(new SpawnPointInfo(hex, 'G'));
                         isSpawnPoint = true;
                         break;
                 }

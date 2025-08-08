@@ -11,14 +11,18 @@ import dev.mygame.domain.event.DeathListener;
 import dev.mygame.domain.model.Entity;
 import dev.mygame.domain.model.Monster;
 import dev.mygame.domain.model.Player;
+import dev.mygame.service.AIService;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Data
@@ -28,6 +32,8 @@ public class CombatInstance implements DeathListener {
 
     @EqualsAndHashCode.Exclude
     private GameSession gameSession;
+
+    private final AIService aiService;
 
     private Map<String, Set<Entity>> teams = new HashMap<>();
 
@@ -44,9 +50,10 @@ public class CombatInstance implements DeathListener {
     private static final Logger log = LoggerFactory.getLogger(CombatInstance.class);
 
     public CombatInstance(String combatId, GameSession gameSession,
-                          List<Entity> initialParticipants, Entity initiator) {
+                          List<Entity> initialParticipants, Entity initiator, AIService aiService) {
         this.combatId = combatId;
         this.gameSession = gameSession;
+        this.aiService = aiService;
 
         initializeTeamsAndListeners(initialParticipants);
         //initializeTurnOrder(initiator);
@@ -55,9 +62,10 @@ public class CombatInstance implements DeathListener {
         startNextTurn();
     }
 
-    public CombatInstance(String combatId, GameSession gameSession, List<Entity> initialParticipants) {
+    public CombatInstance(String combatId, GameSession gameSession, List<Entity> initialParticipants, AIService aiService) {
         this.combatId = combatId;
         this.gameSession = gameSession;
+        this.aiService = aiService;
 
         initializeTeamsAndListeners(initialParticipants);
         initializeTurnOrder();
@@ -186,6 +194,15 @@ public class CombatInstance implements DeathListener {
                 .abilityCooldowns(currentAbilityCooldowns)
                 .build();
         this.gameSession.publishUpdate("combat_next_turn", nextTurnEvent);
+
+        if (nextEntity instanceof Monster) {
+            System.out.println("--- Turn Start: " + nextEntity.getName() + " (AI Controlled) ---");
+            gameSession.getScheduler().schedule(() -> {
+                aiService.executeMonsterTurn((Monster) nextEntity, this.gameSession);
+            }, 1, TimeUnit.SECONDS);
+        } else {
+            System.out.println("--- Turn Start: " + nextEntity.getName() + " (Player Controlled) ---");
+        }
     }
 
     /**

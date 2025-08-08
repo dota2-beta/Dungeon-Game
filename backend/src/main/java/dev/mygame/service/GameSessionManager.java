@@ -53,6 +53,8 @@ public class GameSessionManager implements GameSessionEndListener {
 
     private final FactionService factionService;
     private final AbilityService abilityService;
+    private final MonsterSpawnerService spawnerService;
+    private final AIService aiService;
     private final EntityFactory entityFactory;
 
     private static final Logger log = LoggerFactory.getLogger(GameSessionManager.class);
@@ -60,7 +62,7 @@ public class GameSessionManager implements GameSessionEndListener {
 
     @Autowired
     public GameSessionManager(SimpMessagingTemplate messagingTemplate, GameSettings gameSettings, MapGenerationProperties props,
-                              MapGenerator mapGenerator, MapLoader mapLoader, GameDataLoader gameDataLoader, GameSessionMapper gameSessionMapper, EntityMapper entityMapper, EntityActionMapper entityActionMapper, FactionService factionService, AbilityService abilityService, EntityFactory entityFactory, ScheduledExecutorService scheduler) {
+                              MapGenerator mapGenerator, MapLoader mapLoader, GameDataLoader gameDataLoader, GameSessionMapper gameSessionMapper, EntityMapper entityMapper, EntityActionMapper entityActionMapper, FactionService factionService, AbilityService abilityService, MonsterSpawnerService spawnerService, AIService aiService, EntityFactory entityFactory, ScheduledExecutorService scheduler) {
         this.props = props;
         this.mapLoader = mapLoader;
         this.gameSessionMapper = gameSessionMapper;
@@ -68,6 +70,8 @@ public class GameSessionManager implements GameSessionEndListener {
         this.entityActionMapper = entityActionMapper;
         this.factionService = factionService;
         this.abilityService = abilityService;
+        this.spawnerService = spawnerService;
+        this.aiService = aiService;
         this.entityFactory = entityFactory;
         this.scheduler = scheduler;
         this.activeSessions = new ConcurrentHashMap<>();
@@ -89,7 +93,6 @@ public class GameSessionManager implements GameSessionEndListener {
             throw new RuntimeException("Could not create game session, map failed to load.", e);
         }
 
-        Map<String, Entity> initialEntities = new ConcurrentHashMap<>();
         Map<String, GameObject> initialGameObjects = new ConcurrentHashMap<>();
 
         GameSession gameSession = GameSession.builder()
@@ -98,14 +101,14 @@ public class GameSessionManager implements GameSessionEndListener {
                 .gameMap(gameMapHex)
                 .gameSettings(this.gameSettings)
                 .messagingTemplate(this.messagingTemplate)
-                .entities(initialEntities)
                 .gameObjects(initialGameObjects)
                 .factionService(factionService)
                 .entityMapper(entityMapper)
                 .abilityService(abilityService)
+                .aiService(aiService)
                 .build();
         gameSession.addGameSessionEndListener(this);
-
+        spawnerService.spawnMonstersForMap(gameSession);
         // TODO: Добавить игроков (Player сущностей) в GameSession, если они еще не добавлены в initialEntities
         // gameSession.addPlayer(userId, ...); // Метод в GameSession
 
@@ -137,7 +140,6 @@ public class GameSessionManager implements GameSessionEndListener {
         String playerClassId = "warrior"; // TODO: переделать, чтобы принималось от клиента
         Hex startPosition = gameMap.getAvailablePlayerSpawnPoint();
 
-        //Point startPosition = gameSession.getGameMap().getSpawnPoint();
         Player player = entityFactory.createPlayer(playerClassId, userId, websocketSessionId, startPosition);
 
         gameSession.addEntity(player);

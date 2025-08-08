@@ -1,8 +1,24 @@
 monster-classes:
   - templateId: "goblin_warrior"
     name: "Goblin Warrior"
+    abilities:
+      - "fireball"
+      - "lesser_heal"
     stats:
       maxHp: 35
+      attack: 8
+      defense: 2
+      initiative: 12
+      maxAP: 6
+      attackRange: 1
+      aggroRadius: 5
+  - template-id: "goblin_healer"
+    name: "goblin_healer"
+    abilities:
+      - "fireball"
+      - "lesser_heal"
+    stats:
+      maxHp: 30
       attack: 8
       defense: 2
       initiative: 12
@@ -12,6 +28,9 @@ monster-classes:
 
   - templateId: "orc_brute"
     name: "Orc Brute"
+    abilities:
+      - "fireball"
+      - "lesser_heal"
     stats:
       maxHp: 80
       attack: 15
@@ -23,6 +42,9 @@ monster-classes:
 
   - templateId: "lich_king_boss"
     name: "The Lich King"
+    abilities:
+      - "fireball"
+      - "lesser_heal"
     stats:
       maxHp: 500
       attack: 25

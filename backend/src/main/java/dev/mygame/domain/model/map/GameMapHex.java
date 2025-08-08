@@ -1,22 +1,25 @@
 package dev.mygame.domain.model.map;
 
+import dev.mygame.domain.model.Entity;
+import dev.mygame.service.internal.SpawnPointInfo;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Getter
 public class GameMapHex {
     private final Map<Hex, Tile> tiles;
     private final List<Hex> playerSpawnPoints;
-    private final List<Hex> monsterSpawnPoints;
+    private final List<SpawnPointInfo> monsterSpawnPoints;
 
     private int nextPlayerSpawnIndex = 0;
 
     @Builder
-    public GameMapHex(Map<Hex, Tile> tiles, List<Hex> playerSpawnPoints, List<Hex> monsterSpawnPoints) {
+    public GameMapHex(Map<Hex, Tile> tiles, List<Hex> playerSpawnPoints, List<SpawnPointInfo> monsterSpawnPoints) {
         this.tiles = (tiles != null) ? tiles : new HashMap<>();
         this.playerSpawnPoints = (playerSpawnPoints != null) ? playerSpawnPoints : new ArrayList<>();
         this.monsterSpawnPoints = (monsterSpawnPoints != null) ? monsterSpawnPoints : new ArrayList<>();
@@ -39,71 +42,65 @@ public class GameMapHex {
         return tiles.entrySet();
     }
 
-    public List<Hex> findPath(Hex start, Hex target) {
-        Tile targetTile = getTile(target);
+    public List<Hex> findPath(Hex start, Hex end, Collection<Entity> otherEntities, String startEntityId) {
+        Tile startTile = getTile(start);
+        Tile targetTile = getTile(end);
+
+        if (startTile == null) {
+            return new ArrayList<>();
+        }
+        if (targetTile == null) {
+            return new ArrayList<>();
+        }
+        if (!targetTile.isPassable()) {
+            return new ArrayList<>();
+        }
         if (targetTile == null || !targetTile.isPassable()) {
             return new ArrayList<>();
         }
-        if (start.equals(target)) {
+        if (start.equals(end)) {
             return Collections.singletonList(start);
         }
 
-        final int MOVE_COST = 10;
+        Set<Hex> occupiedHexes = otherEntities.stream()
+                .filter(e -> !e.getId().equals(startEntityId))
+                .map(Entity::getPosition)
+                .collect(Collectors.toSet());
 
         PriorityQueue<AStarNode> openSet = new PriorityQueue<>(Comparator.comparingInt(AStarNode::getFCost));
-        Set<Hex> closedSet = new HashSet<>();
         Map<Hex, AStarNode> allNodes = new HashMap<>();
 
-        AStarNode startNode = new AStarNode(start);
-        startNode.calculateHeuristic(target);
-        startNode.calculateFCost();
-
+        AStarNode startNode = new AStarNode(start, null, 0, start.distanceTo(end));
         openSet.add(startNode);
         allNodes.put(start, startNode);
 
         while (!openSet.isEmpty()) {
             AStarNode currentNode = openSet.poll();
 
-            if (currentNode.getHex().equals(target)) {
+            if (currentNode.getHex().equals(end)) {
                 return reconstructPath(currentNode);
             }
-
-            closedSet.add(currentNode.getHex());
+            if (currentNode.getGCost() > allNodes.get(currentNode.getHex()).getGCost()) {
+                continue;
+            }
 
             for (Hex direction : Hex.DIRECTIONS) {
                 Hex neighborHex = currentNode.getHex().add(direction);
 
-                if (closedSet.contains(neighborHex)) {
-                    continue;
-                }
-
                 Tile neighborTile = getTile(neighborHex);
-                if (neighborTile == null) {
+                if (neighborTile == null || !neighborTile.isPassable()) {
                     continue;
                 }
-                if (!neighborTile.isPassable()) {
+                if (occupiedHexes.contains(neighborHex) && !neighborHex.equals(end)) {
                     continue;
                 }
 
-                int tentativeGCost = currentNode.getGCost() + MOVE_COST;
-
+                int newGCost = currentNode.getGCost() + 1;
                 AStarNode neighborNode = allNodes.get(neighborHex);
-
-                if (neighborNode == null || tentativeGCost < neighborNode.getGCost()) {
-                    if (neighborNode == null) {
-                        neighborNode = new AStarNode(neighborHex);
-                        allNodes.put(neighborHex, neighborNode);
-                    }
-
-                    neighborNode.setParent(currentNode);
-                    neighborNode.setGCost(tentativeGCost);
-                    neighborNode.calculateHeuristic(target);
-                    neighborNode.calculateFCost();
-
-                    if (openSet.contains(neighborNode)) {
-                        openSet.remove(neighborNode);
-                    }
-                    openSet.add(neighborNode);
+                if (neighborNode == null || newGCost < neighborNode.getGCost()) {
+                    AStarNode newNode = new AStarNode(neighborHex, currentNode, newGCost, neighborHex.distanceTo(end));
+                    allNodes.put(neighborHex, newNode);
+                    openSet.add(newNode);
                 }
             }
         }

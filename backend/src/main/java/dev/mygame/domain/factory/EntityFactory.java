@@ -63,6 +63,7 @@ public class EntityFactory {
                 .teamId(null)
                 .aggroRadius(stats.getAggroRadius())
                 .abilities(playerAbilities)
+                .name(playerClassTemplate.getName())
                 .build();
     }
 
@@ -78,6 +79,18 @@ public class EntityFactory {
 
         EntityStatsTemplate stats = template.getStats();
 
+        List<AbilityInstance> monsterAbilities = new ArrayList<>();
+        if(template.getAbilities() != null) {
+            for(String abilityId : template.getAbilities()) {
+                gameDataLoader.getAbilityTemplate(abilityId)
+                        .ifPresent(
+                            abilityTemplate -> {
+                                monsterAbilities.add(new AbilityInstance(abilityTemplate));
+                            }
+                        );
+            }
+        }
+
         return Monster.builder()
                 .id(UUID.randomUUID().toString()) // Генерируем уникальный ID экземпляра
                 .name(template.getName())
@@ -92,6 +105,7 @@ public class EntityFactory {
                 .attackRange(stats.getAttackRange())
                 .aggroRadius(stats.getAggroRadius())
                 .state(EntityStateType.EXPLORING)
+                .abilities(monsterAbilities)
                 .build();
     }
 }

@@ -2,14 +2,14 @@ package dev.mygame.service.internal;
 
 import dev.mygame.domain.model.map.Hex;
 import dev.mygame.enums.ActionType;
-import dev.mygame.domain.event.IAction;
 import lombok.*;
 
 @Getter
 @Setter
-@NoArgsConstructor
+@Builder
 @ToString
-public class EntityAction implements IAction {
+
+public class EntityAction {
     private ActionType actionType;
     private String targetId;
     private Hex targetHex;
