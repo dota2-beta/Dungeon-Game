@@ -457,7 +457,7 @@ public class GameSession implements CombatEndListener {
         return null;
     }
 
-    private void checkForCombatStart(Entity movedEntity) {
+    public void checkForCombatStart(Entity movedEntity) {
         if(movedEntity.getState() == EntityStateType.COMBAT)
             return;
 
@@ -498,6 +498,7 @@ public class GameSession implements CombatEndListener {
 
         if(existingCombatId != null) {
             log.info("{}'s group joins an existing combat!", movedEntity.getName());
+            convertAbilityCooldownByEntityStateType(EntityStateType.COMBAT, joiningGroup);
             activeCombats.get(existingCombatId).addParticipantsToCombat(joiningGroup);
         } else {
             System.out.println("--- [SERVER] Combat condition met for entity: " + movedEntity.getId() + " at position " + movedEntity.getPosition() + " ---");
@@ -537,6 +538,7 @@ public class GameSession implements CombatEndListener {
         publishCombatStartedEvent(combat, combatId);
     }
 
+    // первый аргумент - тип боя, В КОТОРЫЙ нужно перевести КД
     private void convertAbilityCooldownByEntityStateType(EntityStateType entityStateType, List<Entity> participants) {
         for(Entity participant : participants) {
             for (AbilityInstance ability : participant.getAbilities()) {

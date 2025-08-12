@@ -17,6 +17,7 @@ import {
     type AbilityCastedEvent,
     type AbilityStateDto,
     type PeaceProposalEvent,
+    type CombatParticipantsJoinedEvent,
 } from '../types/dto';
 
 export interface CombatState {
@@ -75,6 +76,7 @@ type GameAction =
     | { type: 'ADD_NEW_ENTITY'; payload: PlayerStateDto | MonsterStateDto } 
     | { type: 'REMOVE_ENTITY'; payload: PlayerLeftEvent }
     | { type: 'COMBAT_STARTED'; payload: CombatStartedEvent }
+    | { type: 'COMBAT_PARTICIPANTS_JOINED'; payload: CombatParticipantsJoinedEvent }
     | { type: 'COMBAT_ENDED'; payload: CombatEndedEvent }
     | { type: 'CLEAR_COMBAT_OUTCOME' }
     | { type: 'NEXT_TURN'; payload: CombatNextTurnEvent }
@@ -171,39 +173,69 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
         
         case 'REMOVE_ENTITY':
             return { ...state, entities: state.entities.filter(e => e.id !== action.payload.entityId) };
-        case 'COMBAT_STARTED': {
-            const { combatants } = action.payload;
-            const combatantsMap = new Map(combatants.map(c => [c.id, c]));
         
+        case 'COMBAT_STARTED': {
+            const { combatants, initialTurnOrder, combatId } = action.payload;
+            const combatantsMap = new Map(combatants.map(c => [c.id, c]));
+
             const updatedEntities = state.entities.map(entity => {
                 const freshData = combatantsMap.get(entity.id);
-                
                 if (freshData) {
-                    // Объединяем старый объект с новыми данными
                     const mergedEntity = { ...entity, ...freshData };
-                    
-                    // --- ГЛАВНОЕ ИСПРАВЛЕНИЕ ---
-                    // Мы явно говорим TypeScript, что если исходный тип был 'PLAYER',
-                    // то и результат будет 'PlayerStateDto'.
                     if (entity.type === 'PLAYER') {
                         return mergedEntity as PlayerStateDto;
                     } else {
                         return mergedEntity as MonsterStateDto;
                     }
                 }
-                
                 return entity;
             });
-        
+
+            const isPlayerInCombat = combatants.some(
+                combatant => combatant.id === state.yourPlayerId
+            );
+
             return {
                 ...state,
-                // Теперь TypeScript уверен, что тип массива правильный
+                entities: updatedEntities,
+                activeCombat: isPlayerInCombat
+                    ? {
+                        combatId: combatId,
+                        turnOrder: initialTurnOrder,
+                        currentTurnEntityId: initialTurnOrder[0],
+                      }
+                    : state.activeCombat,
+            };
+        }
+
+        case 'COMBAT_PARTICIPANTS_JOINED': {
+            const { combatId, participantIds, turnOrder } = action.payload;
+
+            const isPlayerJoining = participantIds.includes(state.yourPlayerId);
+            
+            if (!isPlayerJoining && state.activeCombat?.combatId !== combatId) {
+                return state;
+            }
+
+            const updatedEntities = state.entities.map(entity => {
+                if (participantIds.includes(entity.id)) {
+                    return {
+                        ...entity,
+                        state: EntityStateType.COMBAT,
+                        currentAP: entity.maxAP,
+                    };
+                }
+                return entity;
+            });
+
+            return {
+                ...state,
                 entities: updatedEntities,
                 activeCombat: {
-                    combatId: action.payload.combatId,
-                    turnOrder: action.payload.initialTurnOrder,
-                    currentTurnEntityId: action.payload.initialTurnOrder[0],
-                }
+                    combatId: combatId,
+                    turnOrder: turnOrder,
+                    currentTurnEntityId: state.activeCombat?.currentTurnEntityId ?? turnOrder[0],
+                },
             };
         }
 

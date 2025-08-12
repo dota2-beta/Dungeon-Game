@@ -141,6 +141,8 @@ public class GameSessionManager implements GameSessionEndListener {
 
         sendInitialStateToPlayer(gameSession, userId);
         gameSession.publishUpdate("player_joined", entityMapper.toPlayerState(player));
+
+        gameSession.checkForCombatStart(player);
     }
 
     public void handlePlayerAction(String sessionId, String websocketSessionId, PlayerAction playerAction) {

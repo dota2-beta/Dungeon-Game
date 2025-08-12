@@ -17,7 +17,8 @@ import type {
     CasterStateUpdatedEvent,
     AbilityCastedEvent,
     PeaceProposalEvent,
-    PeaceProposalResultEvent
+    PeaceProposalResultEvent,
+    CombatParticipantsJoinedEvent
 } from './types/dto';
 import GameCanvas from './components/GameCanvas';
 import PlayerHUD from './components/PlayerHUD';
@@ -176,6 +177,9 @@ const Game: FC = () => {
                         break;
                     case 'combat_next_turn':
                         dispatch({ type: 'NEXT_TURN', payload: update.payload as CombatNextTurnEvent });
+                        break;
+                    case 'combat_participants_joined':
+                        dispatch({ type: 'COMBAT_PARTICIPANTS_JOINED', payload: update.payload as CombatParticipantsJoinedEvent });
                         break;
                     case 'combat_ended':
                         dispatch({ type: 'COMBAT_ENDED', payload: update.payload as CombatEndedEvent });

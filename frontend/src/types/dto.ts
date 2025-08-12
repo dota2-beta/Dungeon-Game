@@ -190,6 +190,12 @@ export interface CombatNextTurnEvent {
     abilityCooldowns: AbilityStateDto[];
 }
 
+export interface CombatParticipantsJoinedEvent {
+    combatId: string;
+    participantIds: string[]; // ID новых участников
+    turnOrder: string[];      // Новый, полный порядок ходов
+}
+
 export interface TeamInviteEvent {
     fromPlayerId: string;
     fromPlayerName: string;
