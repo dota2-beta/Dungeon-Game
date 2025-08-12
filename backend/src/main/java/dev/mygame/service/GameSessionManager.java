@@ -1,6 +1,6 @@
 package dev.mygame.service;
 
-import dev.mygame.config.GameSettings;
+import dev.mygame.config.StandartEntityGameSettings;
 import dev.mygame.config.MapGenerationProperties;
 import dev.mygame.config.WebSocketDestinations;
 import dev.mygame.data.MapLoader;
@@ -8,11 +8,6 @@ import dev.mygame.domain.factory.EntityFactory;
 import dev.mygame.domain.model.map.GameMapHex;
 import dev.mygame.domain.model.map.Hex;
 import dev.mygame.dto.websocket.request.PlayerAction;
-import dev.mygame.dto.websocket.response.AbilityCooldownDto;
-import dev.mygame.dto.websocket.response.GameSessionStateDto;
-import dev.mygame.dto.websocket.response.PlayerStateDto;
-import dev.mygame.enums.EntityStateType;
-import dev.mygame.domain.model.Entity;
 import dev.mygame.domain.model.GameObject;
 import dev.mygame.domain.model.Player;
 import dev.mygame.domain.event.GameSessionEndListener;
@@ -41,7 +36,7 @@ public class GameSessionManager implements GameSessionEndListener {
     public Map<String, GameSession> activeSessions;
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final GameSettings gameSettings;
+    private final StandartEntityGameSettings standartEntityGameSettings;
     private final MapGenerationProperties props;
     private final MapGenerator mapGenerator;
     private final MapLoader mapLoader;
@@ -61,7 +56,7 @@ public class GameSessionManager implements GameSessionEndListener {
     private final ScheduledExecutorService scheduler;
 
     @Autowired
-    public GameSessionManager(SimpMessagingTemplate messagingTemplate, GameSettings gameSettings, MapGenerationProperties props,
+    public GameSessionManager(SimpMessagingTemplate messagingTemplate, StandartEntityGameSettings standartEntityGameSettings, MapGenerationProperties props,
                               MapGenerator mapGenerator, MapLoader mapLoader, GameDataLoader gameDataLoader, GameSessionMapper gameSessionMapper, EntityMapper entityMapper, EntityActionMapper entityActionMapper, FactionService factionService, AbilityService abilityService, MonsterSpawnerService spawnerService, AIService aiService, EntityFactory entityFactory, ScheduledExecutorService scheduler) {
         this.props = props;
         this.mapLoader = mapLoader;
@@ -76,7 +71,7 @@ public class GameSessionManager implements GameSessionEndListener {
         this.scheduler = scheduler;
         this.activeSessions = new ConcurrentHashMap<>();
         this.messagingTemplate = messagingTemplate;
-        this.gameSettings = gameSettings;
+        this.standartEntityGameSettings = standartEntityGameSettings;
         this.mapGenerator = mapGenerator;
         this.gameDataLoader = gameDataLoader;
     }
@@ -89,7 +84,7 @@ public class GameSessionManager implements GameSessionEndListener {
             gameMapHex = mapLoader.loadMapFromFile("gamedata/maps/dungeon_level_1.txt");
         } catch (Exception e) {
             log.error("Failed to load map file!", e);
-            gameMapHex = mapGenerator.generateHexBattleArena(props);;
+            //gameMapHex = mapGenerator.generateHexBattleArena(props);
             throw new RuntimeException("Could not create game session, map failed to load.", e);
         }
 
@@ -99,7 +94,7 @@ public class GameSessionManager implements GameSessionEndListener {
                 .sessionID(sessionId)
                 .scheduler(scheduler)
                 .gameMap(gameMapHex)
-                .gameSettings(this.gameSettings)
+                .standartEntityGameSettings(this.standartEntityGameSettings)
                 .messagingTemplate(this.messagingTemplate)
                 .gameObjects(initialGameObjects)
                 .factionService(factionService)
@@ -182,7 +177,6 @@ public class GameSessionManager implements GameSessionEndListener {
     public void onGameSessionEnd(GameSession session) {
         boolean removed = this.activeSessions.remove(session.getSessionID(), session);
         if (removed) {
-            System.out.println("Game Session " + session.getSessionID() + " ended with outcome: ");
             // TODO: Возможно, разослать сообщение всем клиентам, которые были в этой сессии, о ее завершении
             // TODO: Очистить ресурсы, связанные с сессией, если есть
         } else {
@@ -211,5 +205,19 @@ public class GameSessionManager implements GameSessionEndListener {
 
         if(invitedUser != null)
             session.handleRespondPlayerToTeamInvite(invitedUser, accepted);
+    }
+
+    public void handlePeaceProposal(String sessionId, String initiatorUserId, String combatId) {
+        GameSession session = activeSessions.get(sessionId);
+        if(session == null)
+            return;
+        session.handlePeaceProposal(combatId, initiatorUserId);
+    }
+
+    public void handlePeaceResponse(String sessionId, String name, String combatId, boolean accepted) {
+        GameSession session = activeSessions.get(sessionId);
+        if(session == null)
+            return;
+        session.handlePeaceResponse(combatId, name, accepted);
     }
 }

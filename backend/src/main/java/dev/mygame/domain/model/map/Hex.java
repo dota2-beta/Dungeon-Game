@@ -1,10 +1,12 @@
 package dev.mygame.domain.model.map;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -31,6 +33,17 @@ public class Hex {
      */
     public Hex getNeighbor(int direction) {
         return this.add(DIRECTIONS.get(direction));
+    }
+
+    @JsonIgnore
+    public List<Hex> getNeighbors() {
+        List<Hex> neighbors = new ArrayList<>();
+        // Проходимся циклом по всем направлениям
+        for (Hex direction : DIRECTIONS) {
+            // Добавляем к текущему гексу вектор направления
+            neighbors.add(this.add(direction));
+        }
+        return neighbors;
     }
 
     public int getS() {

@@ -1,5 +1,11 @@
 package dev.mygame.config;
 
+/**
+ * Класс, который хранит все адреса для
+ * взаимодействия по WebSocket протоколу STOMP.
+ * <p>
+ * Класс не предназначен для создания экземпляров.
+ */
 public final class WebSocketDestinations {
     // --- Общие топики (рассылка всем в сессии) ---
     public static final String GAME_UPDATES_TOPIC = "/topic/session/{sessionId}/game-updates";

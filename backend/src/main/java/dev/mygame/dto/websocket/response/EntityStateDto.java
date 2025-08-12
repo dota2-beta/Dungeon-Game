@@ -18,5 +18,6 @@ public class EntityStateDto {
     public int maxAP;
     public String type; // игрок или монстр
     public boolean isDead;
+    public String teamId;
     private List<AbilityCooldownDto> abilities;
 }

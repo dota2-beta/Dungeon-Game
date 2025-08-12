@@ -6,6 +6,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * DTO для получения действия (MOVE, ATTACK и др.) от клиента
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

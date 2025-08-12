@@ -9,18 +9,14 @@ import dev.mygame.domain.model.Player;
 import dev.mygame.domain.model.map.Hex;
 import dev.mygame.domain.session.AbilityInstance;
 import dev.mygame.domain.session.GameSession;
-import dev.mygame.dto.websocket.response.AbilityCooldownDto;
-import dev.mygame.dto.websocket.response.event.AbilityCastedEvent;
-import dev.mygame.dto.websocket.response.event.CasterStateUpdatedEvent;
+import dev.mygame.dto.websocket.event.AbilityCastedEvent;
 import dev.mygame.enums.AbilityUseResult;
 import dev.mygame.enums.EntityStateType;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -46,7 +42,8 @@ public class AbilityService {
 
         AbilityTemplate abilityTemplate = abilityInstance.getTemplate();
 
-        if(abilityTemplate.getCostAp() > caster.getCurrentAP()) {
+        if(abilityTemplate.getCostAp() > caster.getCurrentAP()
+           && isInCombat) {
             if(caster instanceof Player)
                 gameSession.sendErrorMessageToPlayer((Player) caster, "Not enough AP", "400");
             return AbilityUseResult.NOT_ENOUGH_AP;
@@ -58,12 +55,8 @@ public class AbilityService {
             return AbilityUseResult.OUT_OF_RANGE;
         }
 
-        if (caster.getState() == EntityStateType.COMBAT) {
-            caster.setCurrentAP(caster.getCurrentAP() - abilityTemplate.getCostAp());
-        }
-
-        double b = 0.0;
         if (isInCombat) {
+            caster.setCurrentAP(caster.getCurrentAP() - abilityTemplate.getCostAp());
             // в бою устанавливаем КД в ходах
             abilityInstance.setTurnCooldown(abilityTemplate.getCooldown());
         } else {

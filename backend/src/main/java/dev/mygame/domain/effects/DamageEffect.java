@@ -2,12 +2,11 @@ package dev.mygame.domain.effects;
 
 import dev.mygame.domain.model.Entity;
 import dev.mygame.domain.session.GameSession;
-import dev.mygame.dto.websocket.response.event.EntityStatsUpdatedEvent;
+import dev.mygame.dto.websocket.event.EntityStatsUpdatedEvent;
 import dev.mygame.service.internal.DamageResult;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Objects;
 
 @Component
 public class DamageEffect implements AbilityEffect{

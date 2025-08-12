@@ -8,6 +8,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.validation.annotation.Validated;
 
+/**
+ * Конфигурационный класс, который отвечает за создание бинов,
+ * необходимых для загрузки игровых данных.
+ */
 @Configuration
 public class GameDataConfig {
 

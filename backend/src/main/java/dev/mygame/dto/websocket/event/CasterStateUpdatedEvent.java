@@ -1,4 +1,4 @@
-package dev.mygame.dto.websocket.response.event;
+package dev.mygame.dto.websocket.event;
 
 import dev.mygame.dto.websocket.response.AbilityCooldownDto;
 import lombok.AllArgsConstructor;
@@ -9,12 +9,11 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class CombatNextTurnEvent {
-    private String combatId;
-    private String currentTurnEntityId;
-    private int currentAP;
+public class CasterStateUpdatedEvent {
+    private String casterId;
+    private int newCurrentAP;
     private List<AbilityCooldownDto> abilityCooldowns;
 }

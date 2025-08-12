@@ -1,10 +1,7 @@
 package dev.mygame.controller.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.mygame.dto.websocket.request.InviteToTeamRequest;
-import dev.mygame.dto.websocket.request.JoinRequest;
-import dev.mygame.dto.websocket.request.PlayerAction;
-import dev.mygame.dto.websocket.request.RespondToTeamRequest;
+import dev.mygame.dto.websocket.request.*;
 import dev.mygame.service.GameSessionManager;
 import dev.mygame.service.internal.EntityAction;
 import lombok.RequiredArgsConstructor;
@@ -54,11 +51,7 @@ public class WebSocketController {
 
     @MessageMapping("/create-session")
     public void onCreateSession(SimpMessageHeaderAccessor headerAccessor, Principal principal) {
-        String websocketSessionId = headerAccessor.getSessionId();
-
-        //временный userId пока нет аутентификации
         String userId = principal.getName();
-        //String userId = websocketSessionId;
 
         try {
             String sessionId = gameSessionManager.createSession();
@@ -97,5 +90,24 @@ public class WebSocketController {
     ) {
         String currentUserId = principal.getName();
         gameSessionManager.respondPlayerToTeamInvite(sessionId, currentUserId, request.isAccepted());
+    }
+
+    @MessageMapping("/session/{sessionId}/combat/{combatId}/propose-peace")
+    public void onProposePeace(
+            @DestinationVariable String sessionId,
+            @DestinationVariable String combatId,
+            Principal principal
+    ) {
+        gameSessionManager.handlePeaceProposal(sessionId, principal.getName(), combatId);
+    }
+
+    @MessageMapping("/session/{sessionId}/combat/{combatId}/respond-peace")
+    public void onRespondToPeace(
+            @DestinationVariable String sessionId,
+            @DestinationVariable String combatId,
+            Principal principal,
+            @Payload RespondToPeaceRequest request
+    ) {
+        gameSessionManager.handlePeaceResponse(sessionId, principal.getName(), combatId, request.isAccepted());
     }
 }

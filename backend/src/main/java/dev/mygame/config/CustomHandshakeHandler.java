@@ -7,11 +7,15 @@ import java.security.Principal;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Пользовательский обработчик handshake для WebSocket соединений
+ * <p>
+ * При каждом новом подключении он генерирует случайный UUID и
+ * создает для сессии временный {@link WebSocketPrincipal}.
+ */
 public class CustomHandshakeHandler extends DefaultHandshakeHandler {
     @Override
     protected Principal determineUser(ServerHttpRequest request, WebSocketHandler wsHandler, Map<String, Object> attributes) {
-        // Генерируем уникальный ID для каждого нового подключения и используем его как имя Principal
         return new WebSocketPrincipal(UUID.randomUUID().toString());
-        // Позже, когда будет аутентификация, здесь можно будет извлекать имя пользователя из HTTP-сессии или токена
     }
 }

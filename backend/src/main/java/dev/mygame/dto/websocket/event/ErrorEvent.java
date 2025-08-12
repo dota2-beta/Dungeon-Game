@@ -1,4 +1,4 @@
-package dev.mygame.dto.websocket.response.event;
+package dev.mygame.dto.websocket.event;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -11,8 +11,4 @@ public class ErrorEvent {
     private String message;
     private String errorCode;
 
-    public ErrorEvent(String message) {
-        this.message = message;
-        this.errorCode = null;
-    }
 }

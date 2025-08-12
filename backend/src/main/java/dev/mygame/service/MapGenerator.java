@@ -23,7 +23,6 @@ public class MapGenerator {
         //GameMapHex map = new GameMapHex();
         GameMapHex map = GameMapHex.builder().build();
         int radius = props.getBattleArenaRadius();
-        System.out.println("--- GENERATING ARENA WITH RADIUS: " + radius + " ---");
 
         for (int q = -radius; q <= radius; q++) {
             for (int r = -radius; r <= radius; r++) {

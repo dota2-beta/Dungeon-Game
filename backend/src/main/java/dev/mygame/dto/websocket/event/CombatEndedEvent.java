@@ -1,4 +1,4 @@
-package dev.mygame.dto.websocket.response.event;
+package dev.mygame.dto.websocket.event;
 
 import dev.mygame.enums.CombatOutcome;
 import lombok.AllArgsConstructor;

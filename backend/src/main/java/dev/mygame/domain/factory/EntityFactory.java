@@ -1,6 +1,6 @@
 package dev.mygame.domain.factory;
 
-import dev.mygame.config.GameSettings;
+import dev.mygame.config.StandartEntityGameSettings;
 import dev.mygame.data.GameDataLoader;
 import dev.mygame.data.templates.EntityStatsTemplate;
 import dev.mygame.data.templates.MonsterClassTemplate;
@@ -21,7 +21,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class EntityFactory {
     private final GameDataLoader gameDataLoader;
-    private final GameSettings gameSettings;
+    private final StandartEntityGameSettings standartEntityGameSettings;
     /**
      * Создает объект Player на основе шаблона класса.
      * @param classTemplateId ID шаблона
@@ -45,9 +45,10 @@ public class EntityFactory {
                         });
             }
         }
+        String newEntityId = UUID.randomUUID().toString();
 
         return Player.builder()
-                .id(UUID.randomUUID().toString())
+                .id(newEntityId)
                 .position(startPosition)
                 .maxHp(stats.getMaxHp())
                 .currentHp(stats.getMaxHp())
@@ -55,12 +56,12 @@ public class EntityFactory {
                 .defense(stats.getDefense())
                 .initiative(stats.getInitiative())
                 .maxAP(stats.getMaxAP())
-                .currentAP(gameSettings.getDefaultEntityCurrentAp())
+                .currentAP(standartEntityGameSettings.getDefaultEntityCurrentAp())
                 .attackRange(stats.getAttackRange())
                 .state(EntityStateType.EXPLORING)
                 .userId(userId)
                 .websocketSessionId(websocketSessionId)
-                .teamId(null)
+                .teamId(newEntityId)
                 .aggroRadius(stats.getAggroRadius())
                 .abilities(playerAbilities)
                 .name(playerClassTemplate.getName())
@@ -91,8 +92,9 @@ public class EntityFactory {
             }
         }
 
+        String newEntityId = UUID.randomUUID().toString();
         return Monster.builder()
-                .id(UUID.randomUUID().toString()) // Генерируем уникальный ID экземпляра
+                .id(newEntityId) // Генерируем уникальный ID экземпляра
                 .name(template.getName())
                 .position(position)
                 .maxHp(stats.getMaxHp())
@@ -106,6 +108,7 @@ public class EntityFactory {
                 .aggroRadius(stats.getAggroRadius())
                 .state(EntityStateType.EXPLORING)
                 .abilities(monsterAbilities)
+                .teamId(newEntityId)
                 .build();
     }
 }

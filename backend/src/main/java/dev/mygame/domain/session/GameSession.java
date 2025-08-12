@@ -1,16 +1,19 @@
 package dev.mygame.domain.session;
 
 //import dev.mygame.game.model.map.Map;
-import dev.mygame.config.GameSettings;
+import dev.mygame.config.StandartEntityGameSettings;
 import dev.mygame.config.WebSocketDestinations;
-import dev.mygame.data.templates.AbilityTemplate;
 import dev.mygame.domain.model.Entity;
 import dev.mygame.domain.model.GameObject;
+import dev.mygame.domain.model.Monster;
 import dev.mygame.domain.model.Player;
 import dev.mygame.domain.model.map.*;
+import dev.mygame.dto.websocket.event.*;
+import dev.mygame.dto.websocket.request.PeaceProposalEvent;
+import dev.mygame.dto.websocket.request.PeaceProposalResultEvent;
 import dev.mygame.dto.websocket.response.AbilityCooldownDto;
 import dev.mygame.dto.websocket.response.EntityStateDto;
-import dev.mygame.dto.websocket.response.event.*;
+import dev.mygame.dto.websocket.response.PlayerStateDto;
 import dev.mygame.enums.AbilityUseResult;
 import dev.mygame.enums.EntityStateType;
 import dev.mygame.mapper.EntityMapper;
@@ -27,7 +30,6 @@ import lombok.Builder;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.util.*;
@@ -42,7 +44,7 @@ import static dev.mygame.config.WebSocketDestinations.PRIVATE_EVENTS_QUEUE;
 @Builder
 public class GameSession implements CombatEndListener {
     private String sessionID;
-    private final GameSettings gameSettings;
+    private final StandartEntityGameSettings standartEntityGameSettings;
 
     @Builder.Default
     private Map<String, Entity> entities = new ConcurrentHashMap<>();
@@ -62,6 +64,11 @@ public class GameSession implements CombatEndListener {
     // Ключ - ID приглашенного игрока, Значение - ID команды, в которую его приглашают.
     @Builder.Default
     private Map<String, String> pendingInvites = new ConcurrentHashMap<>();
+
+    // Map<ID комбата, Map<Id юзера, его ответ на приглашение>>
+    @Builder.Default
+    private Map<String, Map<String, Boolean>> peacefulAgreements =  new ConcurrentHashMap<>();
+
     private final ScheduledExecutorService scheduler;
     private static final Logger log = LoggerFactory.getLogger(GameSession.class);
 
@@ -69,9 +76,6 @@ public class GameSession implements CombatEndListener {
     private List<GameSessionEndListener> endListeners = new ArrayList<>();;
 
     public void addEntity(Entity entity) {
-//        if(entity instanceof Player) {
-//            entities.put(((Player) entity).getUserId(), entity);
-//        }
         if(!entities.containsKey(entity.getId())) {
             entities.put(entity.getId(), entity);
         }
@@ -92,6 +96,10 @@ public class GameSession implements CombatEndListener {
 
     public void handleEntityAction(String entityId, EntityAction action) {
         Entity entity = entities.get(entityId);
+        System.out.println("\n--- [GameSession] handleEntityAction received ---");
+        System.out.println("    From Entity ID: " + entityId + " (" + (entity != null ? entity.getName() : "NOT FOUND") + ")");
+        System.out.println("    Action Type: " + action.getActionType());
+
         if (entity == null || entity.isDead()) {
             if (entity instanceof Player) {
                 sendErrorMessageToPlayer(
@@ -107,18 +115,21 @@ public class GameSession implements CombatEndListener {
             CombatInstance combat = findCombatForEntity(entityId);
 
             if (combat != null) {
+                System.out.println("    Entity is in Combat. Current turn is: " + combat.getCurrentTurnEntityId());
                 if (!combat.getCurrentTurnEntityId().equals(entityId)) {
-                    log.warn("Player {} tried to perform action out of turn.", entity.getName());
+                    System.out.println("    !!! ACTION DENIED: Not entity's turn. !!!");
                     if (entity instanceof Player) {
                         sendErrorMessageToPlayer((Player) entity, "It's not your turn!", "NOT_YOUR_TURN");
                     }
                     return;
                 }
+                System.out.println("    Action PERMITTED: It is entity's turn.");
             } else {
-                // сущность в состоянии COMBAT, но не найдена ни в одном бою, не должно быть
-                log.error("Entity {} is in COMBAT state but not found in any active combat instance.", entity.getName());
+                System.out.println("    !!! WARNING: Entity is in COMBAT state but no combat instance was found. !!!");
                 return;
             }
+        } else {
+            System.out.println("    Entity is in EXPLORING state. Action is permitted.");
         }
 
         ActionType actionType = action.getActionType();
@@ -232,17 +243,6 @@ public class GameSession implements CombatEndListener {
         }
     }
 
-    /**
-     * Проверяет, остались ли у сущности очки действия, и если нет - завершает ее ход.
-     * @param entity Сущность для проверки.
-     */
-    private void checkAndEndTurnIfNeeded(Entity entity) {
-        if (entity.getCurrentAP() <= 0) {
-            log.info("Entity {} is out of AP, automatically ending turn.", entity.getName());
-            endTurn(entity.getId());
-        }
-    }
-
     private CombatInstance findCombatForEntity(String entityId) {
         for(CombatInstance combat : activeCombats.values()) {
             boolean isInCombat = combat.getTeams().values().stream()
@@ -254,59 +254,6 @@ public class GameSession implements CombatEndListener {
         }
         return null;
     }
-
-//    private void entityMove(String entityId, Hex targetHex) {
-//        Entity entity = entities.get(entityId);
-//        Player player = (entity instanceof Player) ? (Player) entity : null;
-//
-//        if (player == null) {
-//            return;
-//        }
-//        int distance = player.getPosition().distanceTo(targetHex);
-//        if (distance != 1) {
-//            sendErrorMessageToPlayer(player, "You can only move to adjacent hexes.", "MOVE_INVALID_DISTANCE");
-//            return;
-//        }
-//
-//        Tile targetTile = this.gameMap.getTile(targetHex);
-//        if (targetTile == null || !targetTile.isPassable()) {
-//            sendErrorMessageToPlayer(player, "You can't move there.", "TILE_NOT_PASSABLE");
-//            return;
-//        }
-//
-//        if (targetTile.isOccupied()) {
-//            sendErrorMessageToPlayer(player, "This tile is occupied.", "TILE_OCCUPIED");
-//            return;
-//        }
-//
-//        int moveCost = gameSettings.getDefaultMovementCost();
-//        if (player.getState() == EntityStateType.COMBAT && player.getCurrentAP() < moveCost) {
-//            sendErrorMessageToPlayer(player, "Not enough Action Points to move.", "NOT_ENOUGH_AP");
-//            return;
-//        }
-//
-//        this.gameMap.getTile(player.getPosition()).setOccupiedById(null);
-//        player.setPosition(targetHex);
-//        this.gameMap.getTile(targetHex).setOccupiedById(player.getId());
-//
-//        if (player.getState() == EntityStateType.COMBAT) {
-//            player.setCurrentAP(player.getCurrentAP() - moveCost);
-//        }
-//
-//        EntityMovedEvent movedEvent = EntityMovedEvent.builder()
-//                        .entityId(player.getId())
-//                        .newPosition(player.getPosition())
-//                        .currentAP(player.getCurrentAP())
-//                        .pathToAnimate(List.of(targetHex))
-//                        .reachedTarget(true)
-//                        .build();
-//
-//        publishUpdate("entity_moved", movedEvent);
-//        checkForCombatStart(player);
-//        if (player.getState() == EntityStateType.COMBAT) {
-//            checkAndEndTurnIfNeeded(player);
-//        }
-//    }
 
     private void entityMove(String entityId, Hex targetHex) {
         Entity entity = entities.get(entityId);
@@ -334,7 +281,7 @@ public class GameSession implements CombatEndListener {
             return;
         }
 
-        int moveCost = gameSettings.getDefaultMovementCost();
+        int moveCost = standartEntityGameSettings.getDefaultMovementCost();
         if (entity.getState() == EntityStateType.COMBAT && entity.getCurrentAP() < moveCost) {
             if (entity instanceof Player)
                 sendErrorMessageToPlayer((Player) entity, "Not enough Action Points to move.", "NOT_ENOUGH_AP");
@@ -342,7 +289,13 @@ public class GameSession implements CombatEndListener {
         }
 
         this.gameMap.getTile(entity.getPosition()).setOccupiedById(null);
+
+        System.out.println("--- [SERVER] entityMove: " + entityId + " ---");
+        System.out.println("    Position BEFORE: " + entity.getPosition());
+
         entity.setPosition(targetHex);
+        System.out.println("    Position AFTER: " + entity.getPosition());
+
         this.gameMap.getTile(targetHex).setOccupiedById(entity.getId());
 
         if (entity.getState() == EntityStateType.COMBAT) {
@@ -360,7 +313,7 @@ public class GameSession implements CombatEndListener {
         publishUpdate("entity_moved", movedEvent);
         checkForCombatStart(entity);
         if (entity.getState() == EntityStateType.COMBAT) {
-            checkAndEndTurnIfNeeded(entity);
+            //checkAndEndTurnIfNeeded(entity);
         }
     }
 
@@ -389,20 +342,13 @@ public class GameSession implements CombatEndListener {
             if(factionService.areEnemies(attacker, target)) {
                 log.info(">>> SERVER: Initiating new combat via entityAttack. Attacker: {}, Target: {}", attacker.getId(), target.getId());
 
-                // наносим бесплатный урон
                 DamageResult damageResult = target.takeDamage(attacker.getAttack());
                 publishAttackEvents(attacker, target, damageResult);
 
-                // собираем участников и начинаем бой
                 List<Entity> participants = findNearbyAlliesAndEnemies(attacker, target);
 
-                log.info(">>> SERVER: Participants list before creating combat instance:");
-                for (Entity p : participants) {
-                    log.info("  - Entity ID: {}, Name: {}, Initiative: {}", p.getId(), p.getName(), p.getInitiative());
-                }
-
-
                 startCombatWithInitiator(participants, attacker);
+
             } else if(Objects.equals(attacker.getTeamId(), target.getTeamId())) {
                 DamageResult damageResult = target.takeDamage(attacker.getAttack());
                 publishAttackEvents(attacker, target, damageResult);
@@ -412,10 +358,8 @@ public class GameSession implements CombatEndListener {
 
         if(!isAttackerInCombat && isTargetInCombat && factionService.areEnemies(attacker, target)) {
             log.info("{} joins an existing combat by attacking {}!", attacker.getName(), target.getName());
-
             DamageResult damageResult = target.takeDamage(attacker.getAttack());
             publishAttackEvents(attacker, target, damageResult);
-
             CombatInstance combat = findCombatForEntity(target.getId());
             if(combat != null) {
                 combat.addParticipantsToCombat(findNearbyAlliesAndEnemies(attacker, target));
@@ -423,17 +367,16 @@ public class GameSession implements CombatEndListener {
         }
 
         if (isAttackerInCombat) {
-            if (attacker.getCurrentAP() < gameSettings.getDefaultAttackCost()) {
+            if (attacker.getCurrentAP() < standartEntityGameSettings.getDefaultAttackCost()) {
                 if (attacker instanceof Player) {
                     sendErrorMessageToPlayer((Player) attacker, "Not enough Action Points to attack.", "NOT_ENOUGH_AP");
                 }
                 return;
             }
             DamageResult damageResult = target.takeDamage(attacker.getAttack());
-            attacker.setCurrentAP(attacker.getCurrentAP() - gameSettings.getDefaultAttackCost());
+            attacker.setCurrentAP(attacker.getCurrentAP() - standartEntityGameSettings.getDefaultAttackCost());
 
             publishAttackEvents(attacker, target, damageResult);
-            //checkAndEndTurnIfNeeded(attacker);
         }
     }
 
@@ -470,7 +413,7 @@ public class GameSession implements CombatEndListener {
     }
 
     private List<Entity> findNearbyAlliesAndEnemies(Entity attacker, Entity target) {
-        final int COMBAT_JOIN_RADIUS = gameSettings.getDefaultCheckRadius();
+        final int COMBAT_JOIN_RADIUS = standartEntityGameSettings.getDefaultCheckRadius();
 
         return entities.values().stream()
                 .filter(entity -> entity.getState() == EntityStateType.EXPLORING)
@@ -524,42 +467,40 @@ public class GameSession implements CombatEndListener {
         if (nearbyEntities.isEmpty())
             return;
 
-        List<Entity> nearbyAllies = new ArrayList<>();
-        if(movedEntity.getTeamId() != null)
-            nearbyAllies = nearbyEntities.stream()
-                    .filter(e -> Objects.equals(e.getTeamId(), movedEntity.getTeamId()))
-                    .toList();
-
-        List<Entity> nearbyEnemies = new ArrayList<>();
-
+        //List<Entity> nearbyEnemies = new ArrayList<>();
+        boolean isEnemyPresent = false;
         String existingCombatId = null;
         for(Entity nearbyEntity : nearbyEntities)
             if(factionService.areEnemies(nearbyEntity, movedEntity)) {
                 if(nearbyEntity.getState() == EntityStateType.EXPLORING) {
                     int distance = movedEntity.getPosition().distanceTo(nearbyEntity.getPosition());
-                    if (distance <= movedEntity.getAggroRadius() || distance <= nearbyEntity.getAggroRadius())
-                        nearbyEnemies.add(nearbyEntity);
+                    if (distance <= movedEntity.getAggroRadius() || distance <= nearbyEntity.getAggroRadius()) {
+                        // бой будет начинаться для ВСЕХ юнитов, которые находятся рядом, а не только для "врагов"
+                        // потом можно создать метод для окончания боя по согласию всех участников
+                        isEnemyPresent = true;
+                    }
                 } else {
                     CombatInstance combat = findCombatForEntity(nearbyEntity.getId());
                     if (combat != null) {
                         existingCombatId = combat.getCombatId();
+                        break;
                     }
                 }
             }
-        if (nearbyEnemies.isEmpty() && existingCombatId == null) {
+        if (!isEnemyPresent && existingCombatId == null) {
             return;
         }
 
-        List<Entity> joiningGroup = new ArrayList<>();
+        List<Entity> joiningGroup = new ArrayList<>(nearbyEntities.stream()
+                .filter(e -> e.getState() == EntityStateType.EXPLORING)
+                .toList());
         joiningGroup.add(movedEntity);
-        joiningGroup.addAll(nearbyAllies);
 
         if(existingCombatId != null) {
             log.info("{}'s group joins an existing combat!", movedEntity.getName());
             activeCombats.get(existingCombatId).addParticipantsToCombat(joiningGroup);
         } else {
-            log.info("Combat triggered by proximity! Participants: {}", nearbyEnemies.stream().map(Entity::getName).collect(Collectors.toList()));
-            joiningGroup.addAll(nearbyEnemies);
+            System.out.println("--- [SERVER] Combat condition met for entity: " + movedEntity.getId() + " at position " + movedEntity.getPosition() + " ---");
             startCombatByProximity(joiningGroup);
         }
     }
@@ -573,18 +514,19 @@ public class GameSession implements CombatEndListener {
     }
 
     public void startCombatWithInitiator(List<Entity> participants, Entity initiator) {
+        System.out.println("--- [GameSession] Starting combat with initiator: " + initiator.getName() + " ---");
         String combatId = UUID.randomUUID().toString();
-        CombatInstance combat = new CombatInstance(combatId, this, participants, initiator, aiService);
+        CombatInstance combat = new CombatInstance(combatId, this, participants, aiService);
 
         convertAbilityCooldownByEntityStateType(EntityStateType.COMBAT, participants);
 
         combat.addListener(this);
         activeCombats.put(combatId, combat);
         publishCombatStartedEvent(combat, combatId);
-        //combat.startCombatFlow();
     }
 
     public void startCombatByProximity(List<Entity> participants) {
+        System.out.println("--- [GameSession] Starting combat by proximity ---");
         String combatId = UUID.randomUUID().toString();
         CombatInstance combat = new CombatInstance(combatId, this, participants, aiService);
         convertAbilityCooldownByEntityStateType(EntityStateType.COMBAT, participants);
@@ -646,33 +588,32 @@ public class GameSession implements CombatEndListener {
     }
 
     private void publishCombatStartedEvent(CombatInstance combat, String combatId) {
-        List<String> turnOrderFromCombat = new ArrayList<>(combat.getTurnOrder());
-
         List<CombatTeamDto> combatTeamDtos = combat.getTeams().entrySet().stream()
                 .map(entry -> {
-                    Set<String> teamIds = entry.getValue().stream()
+                    Set<String> teamMemberIds = entry.getValue().stream()
                             .map(Entity::getId)
                             .collect(Collectors.toSet());
-                    return new CombatTeamDto(entry.getKey(), teamIds);
+                    return new CombatTeamDto(entry.getKey(), teamMemberIds);
                 })
                 .toList();
 
-        List<Entity> allCombatants = combat.getTeams().values().stream()
-                .flatMap(Set::stream)
-                .toList();
-        List<EntityStateDto> combatantDtos = allCombatants.stream()
+        List<EntityStateDto> combatantDtos = combat.getTurnOrder().stream()
+                .map(entityId -> entities.get(entityId))
+                .filter(Objects::nonNull)
                 .map(entityMapper::toState)
-                .toList();
+                .collect(Collectors.toList());
 
-        CombatStartedEvent eventToSend = CombatStartedEvent.builder()
+        ArrayList<String> turnOrder = new ArrayList<>(combat.getTurnOrder());
+
+        CombatStartedEvent combatStartedEvent = CombatStartedEvent.builder()
                 .combatId(combatId)
                 .combatInitiatorId(null)
                 .teams(combatTeamDtos)
-                .initialTurnOrder(turnOrderFromCombat)
+                .initialTurnOrder(turnOrder)
                 .combatants(combatantDtos)
                 .build();
 
-        publishUpdate("combat_started", eventToSend);
+        publishUpdate("combat_started", combatStartedEvent);
     }
 
     /**
@@ -802,5 +743,96 @@ public class GameSession implements CombatEndListener {
                 .filter(e -> e.getPosition().equals(centerHex))
                 .findFirst()
                 .orElse(null);
+    }
+
+    public void handlePeaceProposal(String combatId, String initiatorUserId) {
+        CombatInstance combatInstance = activeCombats.get(combatId);
+        if (combatInstance == null) {
+            return;
+        }
+        Player initiator = getPlayerByUserId(initiatorUserId);
+        if (initiator == null) return;
+
+        peacefulAgreements.put(combatId, new ConcurrentHashMap<>());
+        peacefulAgreements.get(combatId).put(initiatorUserId, true);
+
+        PeaceProposalEvent payload = new PeaceProposalEvent(initiator.getId(), initiator.getName());
+
+        publishUpdateToCombatants(combatInstance, "peace_proposal", payload);
+
+        handleMonsterPresentInPeace(combatId, combatInstance);
+    }
+
+    private void handleMonsterPresentInPeace(String combatId, CombatInstance combatInstance) {
+        if (combatInstance.getAliveEntities().stream().anyMatch(e -> e instanceof Monster)) {
+            log.warn("Peace proposal for combat {} failed because a monster is still alive.", combatId);
+            peacefulAgreements.remove(combatId);
+
+            PeaceProposalResultEvent event =
+                    new PeaceProposalResultEvent(false,
+                                                 "System: Monsters do not agree to peace.");
+            publishUpdateToCombatants(combatInstance, "peace_proposal_result", event);
+        }
+    }
+
+    public void handlePeaceResponse(String combatId, String responserUserId, boolean accepted) {
+        CombatInstance combatInstance = activeCombats.get(combatId);
+        Map<String, Boolean> votes = peacefulAgreements.get(combatId);
+
+        if (combatInstance == null || combatInstance.isFinished() || votes == null)
+            return;
+
+        Player responder = getPlayerByUserId(responserUserId);
+        if (responder == null || !responder.isAlive())
+            return;
+
+        handleMonsterPresentInPeace(combatId, combatInstance);
+
+        if (!accepted) {
+            log.info("Peace proposal for combat {} was rejected by {}.", combatId, responder.getName());
+            peacefulAgreements.remove(combatId);
+
+            PeaceProposalResultEvent payload = new PeaceProposalResultEvent(false, responder.getName());
+            publishUpdateToCombatants(combatInstance, "peace_proposal_result", payload);
+            return;
+        }
+
+        votes.put(responserUserId, true);
+
+        List<String> alivePlayerUserIds = combatInstance.getAliveEntities().stream()
+                .filter(e -> e instanceof Player)
+                .map(e -> ((Player) e).getUserId())
+                .toList();
+
+        boolean allPlayersVoted = alivePlayerUserIds.stream().allMatch(votes::containsKey);
+
+        if (votes.size() >= alivePlayerUserIds.size() && allPlayersVoted) {
+            log.info("Peace proposal for combat {} was unanimously accepted!", combatId);
+            peacefulAgreements.remove(combatId);
+
+            PeaceProposalResultEvent payload = new PeaceProposalResultEvent(true, null);
+            publishUpdateToCombatants(combatInstance, "peace_proposal_result", payload);
+
+            combatInstance.endCombatForAllByAgreement();
+        }
+    }
+
+    private void publishUpdateToCombatants(CombatInstance combat, String updateType, Object payload) {
+        List<Player> playersInCombat = combat.getAliveEntities().stream()
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .toList();
+
+        Map<String, Object> updateMessage = new HashMap<>();
+        updateMessage.put("actionType", updateType);
+        updateMessage.put("payload", payload);
+
+        for (Player player : playersInCombat) {
+            messagingTemplate.convertAndSendToUser(
+                    player.getUserId(),
+                    WebSocketDestinations.PRIVATE_EVENTS_QUEUE,
+                    updateMessage
+            );
+        }
     }
 }
