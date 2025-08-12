@@ -16,6 +16,7 @@ import {
     type CasterStateUpdatedEvent,
     type AbilityCastedEvent,
     type AbilityStateDto,
+    type PeaceProposalEvent,
 } from '../types/dto';
 
 export interface CombatState {
@@ -32,6 +33,16 @@ export interface ExtendedGameSessionState extends GameSessionStateDto {
     activeCombat: CombatState | null;
     combatOutcomeInfo: { message: string; outcome: CombatOutcome } | null;
     selectedAbility: AbilityStateDto | null;
+    activePeaceProposal: PeaceProposalState | null;
+    notification: NotificationState | null;
+}
+
+export type NotificationType = 'success' | 'error' | 'info';
+
+export interface NotificationState {
+    message: string;
+    type: NotificationType;
+    timestamp: number; // Для уникальности
 }
 
 const initialState: ExtendedGameSessionState = {
@@ -50,6 +61,8 @@ const initialState: ExtendedGameSessionState = {
     activeCombat: null,
     combatOutcomeInfo: null,
     selectedAbility: null,
+    activePeaceProposal: null,
+    notification: null,
 };
 
 type GameAction =
@@ -69,7 +82,11 @@ type GameAction =
     | { type: 'CASTER_STATE_UPDATED'; payload: CasterStateUpdatedEvent }
     | { type: 'CLEAR_ABILITY_ANIMATION' }
     | { type: 'SELECT_ABILITY'; payload: AbilityStateDto } 
-    | { type: 'DESELECT_ABILITY' };
+    | { type: 'DESELECT_ABILITY' }
+    | { type: 'PEACE_PROPOSAL_RECEIVED'; payload: PeaceProposalEvent }
+    | { type: 'PEACE_PROPOSAL_CONCLUDED' }
+    | { type: 'SHOW_NOTIFICATION'; payload: { message: string; type: NotificationType } }
+    | { type: 'HIDE_NOTIFICATION' };
 
 const updateEntityInState = <T extends EntityStateDto>(
     entities: T[], 
@@ -80,6 +97,12 @@ const updateEntityInState = <T extends EntityStateDto>(
         entity.id === entityId ? { ...entity, ...updates } : entity
     );
 };
+
+export interface PeaceProposalState {
+    initiatorId: string;
+    initiatorName: string;
+}
+
 
 
 const gameReducer = (state: ExtendedGameSessionState, action: GameAction): ExtendedGameSessionState => {
@@ -148,21 +171,37 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
         
         case 'REMOVE_ENTITY':
             return { ...state, entities: state.entities.filter(e => e.id !== action.payload.entityId) };
-
         case 'COMBAT_STARTED': {
-            const combatantIds = new Set<string>(action.payload.teams.flatMap(team => team.memberIds));
-            const entitiesInCombat = state.entities.map(entity => {
-                if (combatantIds.has(entity.id)) {
-                    return { ...entity, state: EntityStateType.COMBAT };
+            const { combatants } = action.payload;
+            const combatantsMap = new Map(combatants.map(c => [c.id, c]));
+        
+            const updatedEntities = state.entities.map(entity => {
+                const freshData = combatantsMap.get(entity.id);
+                
+                if (freshData) {
+                    // Объединяем старый объект с новыми данными
+                    const mergedEntity = { ...entity, ...freshData };
+                    
+                    // --- ГЛАВНОЕ ИСПРАВЛЕНИЕ ---
+                    // Мы явно говорим TypeScript, что если исходный тип был 'PLAYER',
+                    // то и результат будет 'PlayerStateDto'.
+                    if (entity.type === 'PLAYER') {
+                        return mergedEntity as PlayerStateDto;
+                    } else {
+                        return mergedEntity as MonsterStateDto;
+                    }
                 }
+                
                 return entity;
             });
+        
             return {
                 ...state,
-                entities: entitiesInCombat,
+                // Теперь TypeScript уверен, что тип массива правильный
+                entities: updatedEntities,
                 activeCombat: {
                     combatId: action.payload.combatId,
-                    turnOrder: action.payload.initialTurnOrder, 
+                    turnOrder: action.payload.initialTurnOrder,
                     currentTurnEntityId: action.payload.initialTurnOrder[0],
                 }
             };
@@ -206,7 +245,8 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                     ...state,
                     entities: entitiesAfterCombat,
                     activeCombat: null,
-                    combatOutcomeInfo: { message, outcome }
+                    combatOutcomeInfo: { message, outcome },
+                    activePeaceProposal: null,
                 };
             }
         
@@ -257,6 +297,35 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                 selectedAbility: null, 
             };
         }
+        case 'PEACE_PROPOSAL_RECEIVED':
+            return {
+                ...state,
+                activePeaceProposal: {
+                    initiatorId: action.payload.initiatorId,
+                    initiatorName: action.payload.initiatorName,
+                },
+            };
+        
+        case 'PEACE_PROPOSAL_CONCLUDED':
+            return {
+                ...state,
+                activePeaceProposal: null,
+            };
+        case 'SHOW_NOTIFICATION':
+            return {
+                ...state,
+                notification: {
+                    message: action.payload.message,
+                    type: action.payload.type,
+                    timestamp: Date.now(),
+                },
+            };
+
+        case 'HIDE_NOTIFICATION':
+            return {
+                ...state,
+                notification: null,
+            };
 
         default:
             return state;

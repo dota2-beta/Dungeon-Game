@@ -195,6 +195,7 @@ export class GameRenderer {
                 if (targetEntity && targetEntity.id !== player.id) {
                     publish(`/app/session/${this.gameState.sessionId}/action`, { actionType: 'ATTACK', targetId: targetEntity.id });
                 } else {
+                    console.log(`%c[CLIENT] Sending MOVE action. Current pos: (${player.position.q},${player.position.r}), Target pos: (${targetHex.q},${targetHex.r})`, 'color: blue; font-weight: bold;');
                     this.handleMoveRequest(player, targetHex);
                 }
             }

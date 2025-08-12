@@ -15,7 +15,9 @@ import type {
     CombatNextTurnEvent,
     CombatEndedEvent,
     CasterStateUpdatedEvent,
-    AbilityCastedEvent
+    AbilityCastedEvent,
+    PeaceProposalEvent,
+    PeaceProposalResultEvent
 } from './types/dto';
 import GameCanvas from './components/GameCanvas';
 import PlayerHUD from './components/PlayerHUD';
@@ -25,6 +27,8 @@ import ActionBar from './components/ActionBar';
 import CombatOutcomeNotification from './components/CombatOutcomeNotification';
 import AbilityBar from './components/AbilityBar';
 import MainHUD from './components/MainHUD';
+import PeaceProposalUI from './components/PeaceProposalUI';
+import NotificationUI from './components/NotificationUI';
 
 const Game: FC = () => {
     const { gameState, dispatch, setErrorMessage } = useGame();
@@ -70,6 +74,40 @@ const Game: FC = () => {
                     setErrorMessage(errorPayload.message || "An unknown error occurred.");
                 }
             );
+
+            subscribe<GameUpdatePayload<any>>(
+                '/user/queue/events', // Адрес из WebSocketDestinations.PRIVATE_EVENTS_QUEUE
+                (update) => {
+                    console.log(`%c[PRIVATE EVENT] Received: ${update.actionType}`, 'color: #9b59b6; font-weight: bold;', update.payload);
+                    
+                    // Обрабатываем события так же, как и публичные
+                    switch (update.actionType) {
+                        case 'peace_proposal':
+                            dispatch({ type: 'PEACE_PROPOSAL_RECEIVED', payload: update.payload as PeaceProposalEvent });
+                            break;
+                        case 'peace_proposal_result': {
+                            const result = update.payload as PeaceProposalResultEvent;
+                            if (result.wasAccepted) {
+                                dispatch({ 
+                                    type: 'SHOW_NOTIFICATION', 
+                                    payload: { message: 'Peace proposal was accepted!', type: 'success' }
+                                });
+                            } else {
+                                dispatch({
+                                    type: 'SHOW_NOTIFICATION',
+                                    payload: { 
+                                        message: `Peace proposal was rejected by ${result.rejectorName ?? 'Someone'}!`, 
+                                        type: 'error' 
+                                    }
+                                });
+                            }
+                            dispatch({ type: 'PEACE_PROPOSAL_CONCLUDED' });
+                            break;
+                        }
+                        // Здесь можно будет обрабатывать и другие личные события в будущем
+                    }
+                }
+            );
             
         };
 
@@ -84,7 +122,7 @@ const Game: FC = () => {
         return () => {
             disconnect();
         };
-    }, [setErrorMessage]);
+    }, [setErrorMessage, dispatch]);
 
     useEffect(() => {
         if (!isConnectedToServer || !sessionId) return;
@@ -102,9 +140,18 @@ const Game: FC = () => {
         const updatesSubscription = subscribe<GameUpdatePayload<any>>(
             `/topic/session/${sessionId}/game-updates`, 
             (update) => {
-                console.log('--- RAW WEBSOCKET UPDATE RECEIVED ---', update);
-                if (update.actionType === 'entity_stats_updated') {
-                    console.log('%c1. App.tsx: Received entity_stats_updated', 'color: #e67e22', update.payload);
+                console.log(`%c[CLIENT] Received event: ${update.actionType}`, 'color: purple; font-weight: bold;', update.payload);
+
+                // Если это событие MOVE, логируем дополнительную информацию
+                if (update.actionType === 'entity_moved') {
+                    const payload = update.payload as EntityMovedEvent;
+                    console.log(`%c    Moved entity ${payload.entityId} to new position: (${payload.newPosition.q},${payload.newPosition.r})`, 'color: #2c3e50;');
+                }
+
+                // Если это событие COMBAT_STARTED, просто логируем факт
+                if (update.actionType === 'combat_started') {
+                    const payload = update.payload as CombatStartedEvent;
+                    console.log(`%c    Combat has started! ID: ${payload.combatId}. Initial turn order:`, 'color: red; font-weight: bold;', payload.initialTurnOrder);
                 }
                 setErrorMessage('');
 
@@ -142,8 +189,8 @@ const Game: FC = () => {
                     case 'ability_casted':
                         dispatch({ type: 'ABILITY_CASTED', payload: update.payload as AbilityCastedEvent });
                         break;
-                        }
-                    }
+                }
+            }
         );
         
         publish('/app/join-session', { sessionId: sessionId });
@@ -279,10 +326,12 @@ const Game: FC = () => {
                                     backgroundColor: '#1d2327' 
                                 }}>
                                     <GameCanvas />
+                                    <NotificationUI />
                                     <TurnOrder />
                                     <CombatOutcomeNotification />
                                     <AbilityBar />
                                     <MainHUD />
+                                    <PeaceProposalUI />
                                 </div>
                                 <p>Click on the map to move your character. Click on another character to attack.</p>
                             </>

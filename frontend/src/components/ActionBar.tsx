@@ -2,10 +2,11 @@ import React from 'react';
 import { useGame } from '../context/GameContext';
 import { publish } from '../api/websocketService';
 import ActionPointsUI from './ActionPointsUI';
+import type { ProposePeaceRequest } from '../types/dto';
 
 const ActionBar: React.FC = () => {
     const { gameState } = useGame();
-    const { activeCombat, yourPlayerId, sessionId } = gameState;
+    const { activeCombat, yourPlayerId, sessionId, activePeaceProposal } = gameState;
 
     const player = gameState.entities.find(e => e.id === yourPlayerId);
 
@@ -22,6 +23,14 @@ const ActionBar: React.FC = () => {
             publish(`/app/session/${sessionId}/action`, { actionType: 'END_TURN' });
         }
     };
+    
+    const handleProposePeace = () => {
+        if (isMyTurn && activeCombat && !activePeaceProposal) {
+            const payload: ProposePeaceRequest = {}; 
+            publish(`/app/session/${sessionId}/combat/${activeCombat.combatId}/propose-peace`, payload);
+        }
+    };
+
 
 
     return (
@@ -37,6 +46,24 @@ const ActionBar: React.FC = () => {
         }}>
             <ActionPointsUI current={player.currentAP} max={player.maxAP} />
             
+            <button
+                onClick={handleProposePeace}
+                disabled={!isMyTurn || !!activePeaceProposal}
+                title="Propose to end combat peacefully"
+                style={{
+                    padding: '10px 15px',
+                    fontSize: '24px',
+                    color: 'white',
+                    backgroundColor: '#6c757d',
+                    border: '1px solid #5a6268',
+                    borderRadius: '5px',
+                    cursor: (!isMyTurn || !!activePeaceProposal) ? 'not-allowed' : 'pointer',
+                    opacity: (!isMyTurn || !!activePeaceProposal) ? 0.5 : 1,
+                }}
+            >
+                🕊️
+            </button>
+
             <button
                 onClick={handleEndTurn}
                 disabled={!isMyTurn}

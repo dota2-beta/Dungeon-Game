@@ -19,6 +19,7 @@ export enum CombatOutcome {
     VICTORY = 'VICTORY',
     DEFEAT = 'DEFEAT',
     IN_PROGRESS = 'IN_PROGRESS',
+    END_BY_AGREEMENT = 'END_BY_AGREEMENT', 
 }
 
 
@@ -154,7 +155,6 @@ export interface AbilityCastedEvent {
 /**
  * Событие: Состояние кастера обновилось после использования способности.
  * Сигнал для UI, чтобы обновить AP и кулдауны на панели действий.
- * // --- ДОБАВЛЕНО ---
  */
 export interface CasterStateUpdatedEvent {
     casterId: string;
@@ -180,6 +180,7 @@ export interface CombatStartedEvent {
     combatInitiatorId: string;
     teams: { teamId: string; memberIds: string[] }[];
     initialTurnOrder: string[];
+    combatants: EntityStateDto[];
 }
 
 export interface CombatNextTurnEvent {
@@ -205,10 +206,10 @@ export interface TeamUpdatedEvent {
 // =================================================================
 
 export interface PlayerAction {
-    actionType: 'MOVE' | 'ATTACK' | 'END_TURN' | 'CAST_SPELL'; // --- ИЗМЕНЕНО ---
+    actionType: 'MOVE' | 'ATTACK' | 'END_TURN' | 'CAST_SPELL';
     targetId?: string;
     targetHex?: Hex;
-    abilityId?: string; // --- ДОБАВЛЕНО (ID шаблона используемой способности) ---
+    abilityId?: string;
 }
 
 
@@ -225,4 +226,41 @@ export interface CombatEndedEvent {
     combatId: string;
     outcome: CombatOutcome;
     winningTeamId?: string;
+}
+
+/**
+ * Событие от сервера: Игрок инициировал голосование о мире.
+ * Соответствует вашему PeaceProposalEvent.java.
+ */
+export interface PeaceProposalEvent {
+    initiatorId: string;
+    initiatorName: string;
+}
+
+/**
+ * Событие от сервера: Голосование о мире завершено.
+ * Соответствует вашему PeaceProposalResultEvent.java.
+ */
+export interface PeaceProposalResultEvent {
+    wasAccepted: boolean;
+    rejectorName: string | null;
+}
+
+
+// =================================================================
+// Client Actions (Действия, отправляемые клиентом на сервер)
+// =================================================================
+
+/**
+ * Запрос от клиента: Игрок предлагает мир.
+ * Тело запроса пустое.
+ */
+export interface ProposePeaceRequest {}
+
+/**
+ * Запрос от клиента: Игрок отвечает на предложение о мире.
+ * Соответствует вашему RespondToPeaceRequest.java.
+ */
+export interface RespondToPeaceRequest {
+    accepted: boolean;
 }
