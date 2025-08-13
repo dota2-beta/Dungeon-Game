@@ -14,6 +14,11 @@ const GameCanvas: React.FC = () => {
         }
         
         if (rendererRef.current) {
+            console.log('%c[DEBUG] GameCanvas: Calling renderer.update() with gameState:', 'color: blue; font-weight: bold;', {
+                abilitiesInState: gameState.abilities,
+                selectedAbility: gameState.selectedAbility,
+            });
+            // --- END DEBUG ---
             rendererRef.current.update(gameState);
         }
     }, [gameState, dispatch]);

@@ -20,6 +20,7 @@ import {
     type CombatParticipantsJoinedEvent,
     type TeamInviteEvent,
     type TeamUpdatedEvent,
+    type AbilityTemplateDto,
 } from '../types/dto';
 
 export interface CombatState {
@@ -39,7 +40,8 @@ export interface ExtendedGameSessionState extends GameSessionStateDto {
     activePeaceProposal: PeaceProposalState | null;
     notification: NotificationState | null
     activeTeamInvite: TeamInviteEvent | null
-    contextMenu: ContextMenuState;
+    contextMenu: ContextMenuState
+    abilities: AbilityTemplateDto[];
 }
 
 export type NotificationType = 'success' | 'error' | 'info';
@@ -75,6 +77,7 @@ const initialState: ExtendedGameSessionState = {
         y: 0,
         targetPlayer: null,
     },
+    abilities: [],
 };
 
 type GameAction =
@@ -104,7 +107,8 @@ type GameAction =
     | { type: 'CLEAR_TEAM_INVITE' }
     | { type: 'TEAM_UPDATED'; payload: TeamUpdatedEvent }
     | { type: 'OPEN_CONTEXT_MENU'; payload: { x: number; y: number; targetPlayer: PlayerStateDto } }
-    | { type: 'CLOSE_CONTEXT_MENU' };
+    | { type: 'CLOSE_CONTEXT_MENU' }
+    | { type: 'SET_ABILITY_TEMPLATES'; payload: AbilityTemplateDto[] };;
 
 const updateEntityInState = <T extends EntityStateDto>(
     entities: T[], 
@@ -138,7 +142,7 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
     }
     switch (action.type) {
         case 'SET_INITIAL_STATE':
-            return { ...initialState, ...action.payload };
+            return { ...state, ...action.payload };
         
         case 'ENTITY_MOVED':
             return {
@@ -382,40 +386,50 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                 notification: null,
             };
             
-            case 'TEAM_INVITE_RECEIVED':
-                return {
-                    ...state,
+        case 'TEAM_INVITE_RECEIVED':
+            return {
+                ...state,
                     activeTeamInvite: action.payload,
                 };
         
-            case 'CLEAR_TEAM_INVITE':
-                return {
-                    ...state,
-                    activeTeamInvite: null,
-                };
-        
-            case 'TEAM_UPDATED': {
-                const { teamId, memberIds } = action.payload;
-                const memberIdSet = new Set(memberIds);
+        case 'CLEAR_TEAM_INVITE':
+            return {
+                ...state,
+                activeTeamInvite: null,
+            };
+    
+        case 'TEAM_UPDATED': {
+            const { teamId, memberIds } = action.payload;
+            const memberIdSet = new Set(memberIds);
 
-                // Просто обновляем teamId для всех сущностей, которые пришли в событии.
-                // И обрабатываем случай, когда команда стала пустой.
-                const updatedEntities = state.entities.map(entity => {
-                    // Если ID сущности есть в списке членов команды, обновляем ее teamId.
-                    if (memberIdSet.has(entity.id)) {
-                        return { ...entity, teamId: teamId };
-                    }
-                    // Если сущность РАНЬШЕ была в этой команде, но теперь ее нет в списке,
-                    // это значит, что для нее придет отдельное событие TEAM_UPDATED с ее новым teamId.
-                    // Поэтому здесь мы ее не трогаем, чтобы не было конфликтов состояний.
-                    return entity;
-                });
+            // --- DEBUG LOGGING ---
+            console.group(`[DEBUG] Reducer: TEAM_UPDATED for teamId: ${teamId}`);
+            const playerBefore = state.entities.find(e => e.id === state.yourPlayerId);
+            console.log(`Payload memberIds:`, memberIds);
+            console.log(`Your player's teamId BEFORE update:`, playerBefore?.teamId);
+            // --- END DEBUG ---
 
-                return {
-                    ...state,
-                    entities: updatedEntities,
-                };
-            }
+            const updatedEntities = state.entities.map(entity => {
+                if (memberIdSet.has(entity.id)) {
+                    return { ...entity, teamId: teamId };
+                }
+                if (entity.teamId === teamId && !memberIdSet.has(entity.id)) {
+                    return { ...entity, teamId: entity.id };
+                }
+                return entity;
+            });
+
+            // --- DEBUG LOGGING ---
+            const playerAfter = updatedEntities.find(e => e.id === state.yourPlayerId);
+            console.log(`Your player's teamId AFTER update:`, playerAfter?.teamId);
+            console.groupEnd();
+            // --- END DEBUG ---
+
+            return {
+                ...state,
+                entities: updatedEntities,
+            };
+        }
         case 'OPEN_CONTEXT_MENU':
             return {
                 ...state,
@@ -431,6 +445,13 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
             return {
                 ...state,
                 contextMenu: { ...state.contextMenu, isOpen: false },
+            };
+        
+        case 'SET_ABILITY_TEMPLATES':
+            console.log('[DEBUG] Reducer: Saving ability templates into state.');
+            return {
+                ...state,
+                abilities: action.payload,
             };
             
 

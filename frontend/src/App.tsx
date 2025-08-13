@@ -20,7 +20,10 @@ import type {
     PeaceProposalResultEvent,
     CombatParticipantsJoinedEvent,
     TeamUpdatedEvent,
-    TeamInviteEvent
+    TeamInviteEvent,
+    PlayerClassTemplateDto,
+    JoinRequest,
+    AbilityTemplateDto
 } from './types/dto';
 import GameCanvas from './components/GameCanvas';
 import PlayerHUD from './components/PlayerHUD';
@@ -47,6 +50,39 @@ const Game: FC = () => {
     const player = gameState.entities.find(e => e.id === gameState.yourPlayerId);
     const teamMembers = player ? gameState.entities.filter(e => e.teamId === player.teamId) : [];
     const teamCompositionKey = teamMembers.map(m => m.id).sort().join(',');
+
+    const [nickname, setNickname] = useState<string>('');
+    const [selectedClassId, setSelectedClassId] = useState<string>('');
+    const [availableClasses, setAvailableClasses] = useState<PlayerClassTemplateDto[]>([]);
+
+    const isLobbyFormInvalid = !nickname || !selectedClassId || availableClasses.length === 0;
+
+    useEffect(() => {
+        const fetchGameData = async () => {
+            try {
+                // Загружаем классы
+                const classResponse = await fetch('http://localhost:8080/api/game-data/player-classes');
+                if (!classResponse.ok) throw new Error('Failed to fetch classes');
+                const classData: PlayerClassTemplateDto[] = await classResponse.json();
+                setAvailableClasses(classData);
+                if (classData.length > 0) {
+                    setSelectedClassId(classData[0].templateId);
+                }
+
+                // Загружаем способности
+                const abilityResponse = await fetch('http://localhost:8080/api/game-data/abilities');
+                if (!abilityResponse.ok) throw new Error('Failed to fetch abilities');
+                const abilityData: AbilityTemplateDto[] = await abilityResponse.json();
+                console.log('%c[DEBUG] App.tsx: Fetched abilities from server. Dispatching SET_ABILITY_TEMPLATES.', 'color: green; font-weight: bold;', abilityData);
+                dispatch({ type: 'SET_ABILITY_TEMPLATES', payload: abilityData });
+
+            } catch (error) {
+                console.error("Could not load game data:", error);
+                setErrorMessage("Could not load game data from server. Is the backend running?");
+            }
+        };
+        fetchGameData();
+    }, [dispatch, setErrorMessage]);
 
     useEffect(() => {
         const onStompConnect = (frame: IFrame) => {
@@ -222,21 +258,38 @@ const Game: FC = () => {
 
     }, [sessionId, isConnectedToServer, dispatch, setErrorMessage]);
 
+    useEffect(() => {
+        if (sessionId && isConnectedToServer && nickname && selectedClassId) {
+            console.log(`Sending join request for session ${sessionId} as ${nickname} (${selectedClassId})`);
+            const payload: JoinRequest = {
+                sessionId: sessionId,
+                name: nickname,
+                templateId: selectedClassId,
+            };
+            publish('/app/join-session', payload);
+        }
+    }, [sessionId, isConnectedToServer, nickname, selectedClassId]);
+
     const handleCreateGame = () => {
-        if (isConnectedToServer) {
+        if (isConnectedToServer && !isLobbyFormInvalid) {
             setErrorMessage('');
-            publish('/app/create-session', {});
+            const payload: JoinRequest = {
+                name: nickname,
+                templateId: selectedClassId
+            };
+            publish('/app/create-session', payload);
         } else {
-            setErrorMessage('Not connected to the server.');
+            setErrorMessage('Not connected or character data is missing.');
         }
     };
 
     const handleJoinGame = () => {
-        if (isConnectedToServer && joinSessionId) {
+        if (isConnectedToServer && joinSessionId && !isLobbyFormInvalid) {
             setErrorMessage('');
+            // Этот вызов просто установит sessionId, что активирует useEffect ниже
             setSessionId(joinSessionId);
         } else {
-            setErrorMessage('Not connected or Session ID is empty.');
+            setErrorMessage('Not connected, Session ID is empty, or character data is missing.');
         }
     };
 
@@ -293,33 +346,72 @@ const Game: FC = () => {
                 {!sessionId ? (
                     <div id="lobby">
                         <h2>Lobby</h2>
-                        <p>Create a new game or join an existing one using a Session ID.</p>
                         
-                        <div style={{ marginBottom: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>
-                            <h3>Create a New Game</h3>
-                            <button 
-                                onClick={handleCreateGame} 
-                                disabled={!isConnectedToServer}
-                                style={{ padding: '10px 15px', fontSize: '16px', cursor: 'pointer', border: '1px solid #007bff', backgroundColor: '#007bff', color: 'white', borderRadius: '5px' }}
-                            >
-                                Create Game
-                            </button>
+                        {/* --- БЛОК СОЗДАНИЯ ПЕРСОНАЖА --- */}
+                        <div style={{ marginBottom: '25px', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
+                            <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Your Character</h3>
+                            <div style={{ marginBottom: '15px' }}>
+                                <label htmlFor="nickname" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Nickname:</label>
+                                <input
+                                    id="nickname"
+                                    type="text"
+                                    placeholder="Enter your name"
+                                    value={nickname}
+                                    onChange={(e) => setNickname(e.target.value)}
+                                    style={{ padding: '10px', fontSize: '16px', width: 'calc(100% - 22px)', border: '1px solid #ccc', borderRadius: '5px' }}
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="player-class" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Class:</label>
+                                <select
+                                    id="player-class"
+                                    value={selectedClassId}
+                                    onChange={(e) => setSelectedClassId(e.target.value)}
+                                    style={{ padding: '10px', fontSize: '16px', width: '100%', border: '1px solid #ccc', borderRadius: '5px', background: 'white' }}
+                                    disabled={availableClasses.length === 0}
+                                >
+                                    {availableClasses.length === 0 ? (
+                                        <option>Loading classes...</option>
+                                    ) : (
+                                        availableClasses.map(cls => (
+                                            <option key={cls.templateId} value={cls.templateId}>
+                                                {cls.name}
+                                            </option>
+                                        ))
+                                    )}
+                                </select>
+                                <p style={{fontSize: '14px', color: '#555', marginTop: '8px', minHeight: '30px'}}>
+                                    {availableClasses.find(c => c.templateId === selectedClassId)?.description}
+                                </p>
+                            </div>
                         </div>
 
-                        <div style={{ padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>
-                            <h3>Join an Existing Game</h3>
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                        {/* --- БЛОКИ СОЗДАНИЯ И ПРИСОЕДИНЕНИЯ К ИГРЕ --- */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                            <div style={{ padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>
+                                <h3>Create a New Game</h3>
+                                <button 
+                                    onClick={handleCreateGame} 
+                                    disabled={!isConnectedToServer || isLobbyFormInvalid} 
+                                    style={{ width: '100%', padding: '10px 15px', fontSize: '16px', cursor: 'pointer', border: '1px solid #007bff', backgroundColor: '#007bff', color: 'white', borderRadius: '5px', opacity: (!isConnectedToServer || isLobbyFormInvalid) ? 0.5 : 1 }}
+                                >
+                                    Create Game
+                                </button>
+                            </div>
+
+                            <div style={{ padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>
+                                <h3>Join an Existing Game</h3>
                                 <input
                                     type="text"
-                                    placeholder="Enter Session ID to join"
+                                    placeholder="Enter Session ID"
                                     value={joinSessionId}
                                     onChange={(e) => setJoinSessionId(e.target.value)}
-                                    style={{ padding: '10px', fontSize: '16px', marginRight: '10px', flexGrow: 1, border: '1px solid #ccc', borderRadius: '5px' }}
+                                    style={{ padding: '10px', fontSize: '16px', width: 'calc(100% - 22px)', border: '1px solid #ccc', borderRadius: '5px', marginBottom: '10px' }}
                                 />
                                 <button 
                                     onClick={handleJoinGame} 
-                                    disabled={!isConnectedToServer || !joinSessionId}
-                                    style={{ padding: '10px 15px', fontSize: '16px', cursor: 'pointer', border: '1px solid #28a745', backgroundColor: '#28a745', color: 'white', borderRadius: '5px' }}
+                                    disabled={!isConnectedToServer || !joinSessionId || isLobbyFormInvalid} 
+                                    style={{ width: '100%', padding: '10px 15px', fontSize: '16px', cursor: 'pointer', border: '1px solid #28a745', backgroundColor: '#28a745', color: 'white', borderRadius: '5px', opacity: (!isConnectedToServer || !joinSessionId || isLobbyFormInvalid) ? 0.5 : 1 }}
                                 >
                                     Join Game
                                 </button>
@@ -356,7 +448,7 @@ const Game: FC = () => {
                                     <PlayerContextMenu />
                                     <TeamStatusUI key={teamCompositionKey} />
                                 </div>
-                                <p>Click on the map to move your character. Click on another character to attack.</p>
+                                <p>Left-click to move or attack monsters. Right-click on a player to invite.</p>
                             </>
                         ) : (
                             <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>

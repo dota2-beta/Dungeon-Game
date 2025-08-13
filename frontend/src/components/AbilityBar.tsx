@@ -5,6 +5,10 @@ const AbilitySlot: React.FC<{ ability: AbilityStateDto }> = ({ ability }) => {
     const { gameState, dispatch } = useGame();
     const [cooldownText, setCooldownText] = useState('');
 
+    const template = gameState.abilities.find(
+        (a) => a.templateId === ability.abilityTemplateId
+    );
+
     const player = gameState.entities.find(e => e.id === gameState.yourPlayerId);
     const isInCombat = player?.state === EntityStateType.COMBAT;
     const isMyTurn = gameState.activeCombat?.currentTurnEntityId === player?.id;
@@ -41,7 +45,9 @@ const AbilitySlot: React.FC<{ ability: AbilityStateDto }> = ({ ability }) => {
         
         dispatch({ type: 'SELECT_ABILITY', payload: ability });
     };
-    const displayName = ability.abilityTemplateId ? ability.abilityTemplateId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : '?';
+    const displayName = template?.name || ability.abilityTemplateId;
+    const displayDescription = template ? `${template.name}\n\n${template.description}` : 'No description available';
+    const displayInitial = template ? template.name.charAt(0).toUpperCase() : '?';
 
     return (
         <button
@@ -69,6 +75,7 @@ const AbilitySlot: React.FC<{ ability: AbilityStateDto }> = ({ ability }) => {
                 textTransform: 'capitalize',
             }}
         >
+            {displayInitial}
             {ability.abilityTemplateId?.split('_')[0] || '?'}
             {cooldownText && (
                 <div style={{

@@ -289,3 +289,23 @@ export interface TeamUpdatedEvent {
     teamId: string;
     memberIds: string[];
 }
+
+export interface PlayerClassTemplateDto {
+    templateId: string;
+    name: string;
+    description: string;
+}
+export interface JoinRequest {
+    sessionId?: string;
+    name: string;
+    templateId: string;
+}
+
+export interface AbilityTemplateDto {
+    templateId: string;
+    name: string;
+    description: string;
+    range: number;
+    areaOfEffectRadius: number;
+    // Можно добавить и другие поля, если они понадобятся в UI, например, costAp
+}

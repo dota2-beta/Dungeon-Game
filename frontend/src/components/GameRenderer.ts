@@ -1,5 +1,5 @@
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
-import type { GameSessionStateDto, PlayerAction, EntityStateDto, EntityStatsUpdatedEvent, Hex, EntityMovedEvent, TileDto, AbilityCastedEvent } from '../types/dto';
+import type { GameSessionStateDto, PlayerAction, EntityStateDto, EntityStatsUpdatedEvent, Hex, EntityMovedEvent, TileDto, AbilityCastedEvent, AbilityTemplateDto } from '../types/dto';
 import { publish } from '../api/websocketService';
 import { gsap } from 'gsap';
 import { Pathfinder } from '../game/Pathfinder';
@@ -77,6 +77,8 @@ export class GameRenderer {
     private aoeHighlightGraphics: Graphics | null = null;
     private dispatch: (action: any) => void;
 
+    private abilityTemplates: AbilityTemplateDto[] = [];
+
     constructor(container: HTMLDivElement, dispatch: (action: any) => void) {
         this.canvasContainer = container;
         this.dispatch = dispatch;
@@ -142,8 +144,48 @@ export class GameRenderer {
         
         this.gameState = newState;
         this.selectedAbilityId = newState.selectedAbility?.abilityTemplateId || null;
-
+        this.abilityTemplates = newState.abilities;
+        
         this.drawEntities();
+    }
+
+    public drawAbilityHighlight(state: ExtendedGameSessionState, hoveredHex: Hex | null) {
+        if (!this.aoeHighlightGraphics) return;
+        this.aoeHighlightGraphics.clear();
+
+        const player = state.entities.find(e => e.id === state.yourPlayerId);
+        const selectedAbilityId = state.selectedAbility?.abilityTemplateId;
+
+        if (selectedAbilityId && hoveredHex && player) {
+            const abilityTemplate = state.abilities.find(
+                (a) => a.templateId === selectedAbilityId
+            );
+
+            // Если шаблон не найден, ничего не рисуем.
+            if (!abilityTemplate) {
+                // Можно добавить лог, но он будет спамить. Лучше просто ничего не делать.
+                return;
+            }
+
+            const radius = abilityTemplate.areaOfEffectRadius;
+            const range = abilityTemplate.range;
+            const distance = hexDistance(player.position, hoveredHex);
+            const color = distance <= range ? 0x00FF00 : 0xFF0000;
+            const hexesToHighlight = getHexesInRange(hoveredHex, radius);
+            
+            const corners = Array.from({ length: 6 }, (_, i) => {
+                const angle = 2 * Math.PI / 6 * (i + 0.5);
+                return [HEX_SIZE * Math.cos(angle), HEX_SIZE * Math.sin(angle)];
+            }).flat();
+
+            for (const hex of hexesToHighlight) {
+                const pixelPos = hexToPixel(hex);
+                this.aoeHighlightGraphics
+                    .poly(corners.map((point, index) => index % 2 === 0 ? point + pixelPos.x : point + pixelPos.y))
+                    .fill({ color: color, alpha: 0.3 })
+                    .stroke({ width: 1, color: color, alpha: 0.7 });
+            }
+        }
     }
     
     private setupEventHandlers() {
@@ -223,18 +265,33 @@ export class GameRenderer {
             }
         });
 
+        // this.worldContainer.on('pointermove', (event) => {
+        //     if (!this.worldContainer) return;
+        //     const pos = event.data.getLocalPosition(this.worldContainer);
+        //     const currentHoveredHex = pixelToHex(pos.x, pos.y);
+        //     if (!this.hoveredHex || this.hoveredHex.q !== currentHoveredHex.q || this.hoveredHex.r !== currentHoveredHex.r) {
+        //         this.hoveredHex = currentHoveredHex;
+        //     }
+        //     if (this.selectedAbilityId) {
+        //         this.canvasContainer.style.cursor = 'crosshair';
+        //     } else {
+        //         this.canvasContainer.style.cursor = 'default';
+        //     }
+        // });
         this.worldContainer.on('pointermove', (event) => {
-            if (!this.worldContainer) return;
+            if (!this.worldContainer || !this.gameState) return;
+
             const pos = event.data.getLocalPosition(this.worldContainer);
             const currentHoveredHex = pixelToHex(pos.x, pos.y);
+
+            // Перерисовываем, только если хекс изменился
             if (!this.hoveredHex || this.hoveredHex.q !== currentHoveredHex.q || this.hoveredHex.r !== currentHoveredHex.r) {
                 this.hoveredHex = currentHoveredHex;
+                // Вызываем перерисовку подсветки с актуальным состоянием
+                this.drawAbilityHighlight(this.gameState, this.hoveredHex);
             }
-            if (this.selectedAbilityId) {
-                this.canvasContainer.style.cursor = 'crosshair';
-            } else {
-                this.canvasContainer.style.cursor = 'default';
-            }
+            
+            this.canvasContainer.style.cursor = this.selectedAbilityId ? 'crosshair' : 'default';
         });
     }
     
@@ -316,11 +373,52 @@ export class GameRenderer {
         });
     }
 
+    // private drawEntities(state: ExtendedGameSessionState) {
+    //     if (!this.entityContainer) return;
+    //     const seenEntityIds = new Set<string>();
+    //     const yourPlayerTeamId = state.entities.find(e => e.id === state.yourPlayerId)?.teamId;
+    //     state.entities.forEach((entity: EntityStateDto) => {
+    //         seenEntityIds.add(entity.id);
+    //         let graphics = this.entityGraphics.get(entity.id);
+    //         if (!graphics) {
+    //             graphics = new Graphics();
+    //             this.entityGraphics.set(entity.id, graphics);
+    //             this.entityContainer!.addChild(graphics);
+    //         }
+    //         graphics.clear();
+    //         const isSelf = entity.id === state.yourPlayerId;
+    //         const isDamaged = this.damagedEntityInfo?.id === entity.id;
+    //         if (entity.dead) {
+    //             graphics.beginFill(0x333333, 0.6).lineStyle(1, 0x000000, 0.6);
+    //         } else {
+    //             const baseColor = entity.type === 'PLAYER' ? 0x00FF00 : 0xFF0000;
+    //             graphics.beginFill(baseColor, 1.0);
+    //             if (isDamaged) graphics.tint = 0xFF0000;
+    //             else graphics.tint = 0xFFFFFF;
+    //             if (isSelf) graphics.lineStyle(2, 0xFFFFFF, 1);
+    //             else if (entity.teamId && entity.teamId === yourPlayerTeamId) graphics.lineStyle(2, 0x00BFFF, 1);
+    //         }
+    //         graphics.drawCircle(0, 0, HEX_SIZE * 0.5).endFill();
+    //         const pixelPos = hexToPixel(entity.position);
+    //         if (!gsap.isTweening(graphics.position)) graphics.position.set(pixelPos.x, pixelPos.y);
+    //     });
+    //     this.entityGraphics.forEach((graphics, entityId) => {
+    //         if (!seenEntityIds.has(entityId)) {
+    //             this.entityContainer!.removeChild(graphics);
+    //             graphics.destroy();
+    //             this.entityGraphics.delete(entityId);
+    //         }
+    //     });
+    // }
+
     private drawEntities() {
         if (!this.entityContainer || !this.gameState) return;
 
         const state = this.gameState;
         const seenEntityIds = new Set<string>();
+
+        // Находим teamId текущего игрока ОДИН РАЗ перед циклом для производительности
+        const yourPlayerTeamId = state.entities.find(e => e.id === state.yourPlayerId)?.teamId;
 
         state.entities.forEach((entity: EntityStateDto) => {
             seenEntityIds.add(entity.id);
@@ -336,18 +434,23 @@ export class GameRenderer {
             const isSelf = entity.id === state.yourPlayerId;
             const isDamaged = this.damagedEntityInfo?.id === entity.id;
 
+            graphics.lineStyle(0, 0, 0); 
+
             if (entity.dead) {
                 graphics.beginFill(0x333333, 0.6).lineStyle(1, 0x000000, 0.6);
             } else {
                 const baseColor = entity.type === 'PLAYER' ? 0x00FF00 : 0xFF0000;
                 graphics.beginFill(baseColor, 1.0);
                 
-                if (isDamaged) graphics.tint = 0xFF0000;
-                else graphics.tint = 0xFFFFFF;
+                if (isDamaged) {
+                    graphics.tint = 0xFF0000;
+                } else {
+                    graphics.tint = 0xFFFFFF;
+                }
                 
                 if (isSelf) {
                     graphics.lineStyle(2, 0xFFFFFF, 1);
-                } else if(entity.teamId && entity.teamId === state.entities.find(e => e.id === state.yourPlayerId)?.teamId) {
+                } else if (entity.teamId && entity.teamId === yourPlayerTeamId) {
                     graphics.lineStyle(2, 0x00BFFF, 1); // Голубой для союзников
                 }
             }
@@ -442,51 +545,62 @@ export class GameRenderer {
     }
     
     public flashEntity(entityId: string, duration: number = 400) {
+        if (!this.gameState) return; // <-- ДОБАВЬТЕ ЭТУ ПРОВЕРКУ
         this.damagedEntityInfo = { id: entityId, clearTime: Date.now() + duration };
         this.drawEntities();
     }
 
     private updateAnimations() {
-        const now = Date.now();
-        if (this.damagedEntityInfo && now > this.damagedEntityInfo.clearTime) {
+        if (this.damagedEntityInfo && Date.now() > this.damagedEntityInfo.clearTime) {
+            if (!this.gameState) return; // <-- ДОБАВЬТЕ ЭТУ ПРОВЕРКУ
             this.damagedEntityInfo = null;
             this.drawEntities();
         }
     }
 
     private gameLoop(): void {
+        // Эта проверка важна, она остается
         if (!this.aoeHighlightGraphics || !this.gameState) {
+            if (this.aoeHighlightGraphics) this.aoeHighlightGraphics.clear();
             return;
         }
-
+    
         this.aoeHighlightGraphics.clear();
-
+    
         const player = this.gameState.entities.find(e => e.id === this.gameState!.yourPlayerId);
+    
+        // Проверяем, выбрана ли способность
         if (this.selectedAbilityId && this.hoveredHex && player) {
             
-            const MOCK_ABILITY_DATA = new Map<string, { radius: number; range: number }>([
-                ["fireball",    { radius: 1, range: 6 }],
-                ["lesser_heal", { radius: 0, range: 5 }]
-            ]);
-            const abilityData = MOCK_ABILITY_DATA.get(this.selectedAbilityId);
-            const radius = abilityData?.radius ?? 0;
-            const range = abilityData?.range ?? 0;
+            // --- ГЛАВНОЕ ИЗМЕНЕНИЕ ---
+            // Вместо MOCK_ABILITY_DATA, мы ищем шаблон в gameState,
+            // который был загружен с сервера.
+            const abilityTemplate = this.gameState.abilities.find(
+                (a) => a.templateId === this.selectedAbilityId
+            );
+    
+            // Если шаблон по какой-то причине не найден, выходим, чтобы не было ошибок.
+            if (!abilityTemplate) {
+                return;
+            }
+    
+            // Берем РАДИУС и ДАЛЬНОСТЬ из загруженного шаблона
+            const radius = abilityTemplate.areaOfEffectRadius;
+            const range = abilityTemplate.range;
             
+            // Вся остальная логика отрисовки остается прежней
             const distance = hexDistance(player.position, this.hoveredHex);
             const color = distance <= range ? 0x00FF00 : 0xFF0000;
             const hexesToHighlight = getHexesInRange(this.hoveredHex, radius);
-
+    
             const corners: number[] = [];
             for (let i = 0; i < 6; i++) {
                 const angle = 2 * Math.PI / 6 * (i + 0.5); 
                 corners.push(HEX_SIZE * Math.cos(angle), HEX_SIZE * Math.sin(angle));
             }
-
-            this.aoeHighlightGraphics.position.set(0, 0);
-
+    
             for (const hex of hexesToHighlight) {
                 const pixelPos = hexToPixel(hex);
-                
                 this.aoeHighlightGraphics
                     .poly(corners.map((point, index) => index % 2 === 0 ? point + pixelPos.x : point + pixelPos.y))
                     .fill({ color: color, alpha: 0.3 })
