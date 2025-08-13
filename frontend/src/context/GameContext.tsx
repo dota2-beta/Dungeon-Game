@@ -18,6 +18,8 @@ import {
     type AbilityStateDto,
     type PeaceProposalEvent,
     type CombatParticipantsJoinedEvent,
+    type TeamInviteEvent,
+    type TeamUpdatedEvent,
 } from '../types/dto';
 
 export interface CombatState {
@@ -35,7 +37,9 @@ export interface ExtendedGameSessionState extends GameSessionStateDto {
     combatOutcomeInfo: { message: string; outcome: CombatOutcome } | null;
     selectedAbility: AbilityStateDto | null;
     activePeaceProposal: PeaceProposalState | null;
-    notification: NotificationState | null;
+    notification: NotificationState | null
+    activeTeamInvite: TeamInviteEvent | null
+    contextMenu: ContextMenuState;
 }
 
 export type NotificationType = 'success' | 'error' | 'info';
@@ -64,6 +68,13 @@ const initialState: ExtendedGameSessionState = {
     selectedAbility: null,
     activePeaceProposal: null,
     notification: null,
+    activeTeamInvite: null,
+    contextMenu: {
+        isOpen: false,
+        x: 0,
+        y: 0,
+        targetPlayer: null,
+    },
 };
 
 type GameAction =
@@ -88,7 +99,12 @@ type GameAction =
     | { type: 'PEACE_PROPOSAL_RECEIVED'; payload: PeaceProposalEvent }
     | { type: 'PEACE_PROPOSAL_CONCLUDED' }
     | { type: 'SHOW_NOTIFICATION'; payload: { message: string; type: NotificationType } }
-    | { type: 'HIDE_NOTIFICATION' };
+    | { type: 'HIDE_NOTIFICATION' }
+    | { type: 'TEAM_INVITE_RECEIVED'; payload: TeamInviteEvent }
+    | { type: 'CLEAR_TEAM_INVITE' }
+    | { type: 'TEAM_UPDATED'; payload: TeamUpdatedEvent }
+    | { type: 'OPEN_CONTEXT_MENU'; payload: { x: number; y: number; targetPlayer: PlayerStateDto } }
+    | { type: 'CLOSE_CONTEXT_MENU' };
 
 const updateEntityInState = <T extends EntityStateDto>(
     entities: T[], 
@@ -103,6 +119,13 @@ const updateEntityInState = <T extends EntityStateDto>(
 export interface PeaceProposalState {
     initiatorId: string;
     initiatorName: string;
+}
+
+export interface ContextMenuState {
+    isOpen: boolean;
+    x: number;
+    y: number;
+    targetPlayer: PlayerStateDto | null;
 }
 
 
@@ -358,6 +381,58 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                 ...state,
                 notification: null,
             };
+            
+            case 'TEAM_INVITE_RECEIVED':
+                return {
+                    ...state,
+                    activeTeamInvite: action.payload,
+                };
+        
+            case 'CLEAR_TEAM_INVITE':
+                return {
+                    ...state,
+                    activeTeamInvite: null,
+                };
+        
+            case 'TEAM_UPDATED': {
+                const { teamId, memberIds } = action.payload;
+                const memberIdSet = new Set(memberIds);
+
+                // Просто обновляем teamId для всех сущностей, которые пришли в событии.
+                // И обрабатываем случай, когда команда стала пустой.
+                const updatedEntities = state.entities.map(entity => {
+                    // Если ID сущности есть в списке членов команды, обновляем ее teamId.
+                    if (memberIdSet.has(entity.id)) {
+                        return { ...entity, teamId: teamId };
+                    }
+                    // Если сущность РАНЬШЕ была в этой команде, но теперь ее нет в списке,
+                    // это значит, что для нее придет отдельное событие TEAM_UPDATED с ее новым teamId.
+                    // Поэтому здесь мы ее не трогаем, чтобы не было конфликтов состояний.
+                    return entity;
+                });
+
+                return {
+                    ...state,
+                    entities: updatedEntities,
+                };
+            }
+        case 'OPEN_CONTEXT_MENU':
+            return {
+                ...state,
+                contextMenu: {
+                    isOpen: true,
+                    x: action.payload.x,
+                    y: action.payload.y,
+                    targetPlayer: action.payload.targetPlayer,
+                },
+            };
+
+        case 'CLOSE_CONTEXT_MENU':
+            return {
+                ...state,
+                contextMenu: { ...state.contextMenu, isOpen: false },
+            };
+            
 
         default:
             return state;
@@ -390,3 +465,5 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const useGame = () => useContext(GameContext);
+
+export type { PlayerStateDto };

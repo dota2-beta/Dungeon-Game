@@ -43,18 +43,24 @@ const PeaceProposalUI: React.FC = () => {
             color: 'white',
             textAlign: 'center',
             boxShadow: '0 5px 15px rgba(0,0,0,0.6)',
+            minWidth: '300px',
+            maxWidth: '500px',
         }}>
             <h4 style={{ margin: 0, marginBottom: '15px', color: '#fdcb6e', textTransform: 'uppercase' }}>
                 Peace Proposal
             </h4>
-            <p style={{ margin: 0, marginBottom: '20px', fontSize: '18px' }}>
+            <p style={{
+                margin: 0,
+                marginBottom: '20px',
+                fontSize: '18px',
+                whiteSpace: 'pre-wrap', // Оставляем для переносов \n
+                wordBreak: 'break-word', // Добавляем принудительный перенос слов
+            }}>
                 {isMyProposal 
                     ? "You have proposed peace. Waiting for others..." 
                     : `Player '${activePeaceProposal.initiatorName}' proposes to end the combat!`
                 }
             </p>
-            
-            {/* Кнопки показываются только тем, кто должен голосовать (не инициатору) */}
             {!isMyProposal && (
                 <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
                     <button onClick={() => handleResponse(true)} style={{ ...buttonStyle, backgroundColor: '#27ae60' }}>

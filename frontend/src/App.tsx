@@ -18,7 +18,9 @@ import type {
     AbilityCastedEvent,
     PeaceProposalEvent,
     PeaceProposalResultEvent,
-    CombatParticipantsJoinedEvent
+    CombatParticipantsJoinedEvent,
+    TeamUpdatedEvent,
+    TeamInviteEvent
 } from './types/dto';
 import GameCanvas from './components/GameCanvas';
 import PlayerHUD from './components/PlayerHUD';
@@ -30,6 +32,9 @@ import AbilityBar from './components/AbilityBar';
 import MainHUD from './components/MainHUD';
 import PeaceProposalUI from './components/PeaceProposalUI';
 import NotificationUI from './components/NotificationUI';
+import TeamInviteUI from './components/TeamInviteUI';
+import PlayerContextMenu from './components/PlayerContextMenu';
+import TeamStatusUI from './components/TeamStatusUI';
 
 const Game: FC = () => {
     const { gameState, dispatch, setErrorMessage } = useGame();
@@ -38,6 +43,10 @@ const Game: FC = () => {
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [isConnectedToServer, setIsConnectedToServer] = useState<boolean>(false);
     const [joinSessionId, setJoinSessionId] = useState<string>('');
+
+    const player = gameState.entities.find(e => e.id === gameState.yourPlayerId);
+    const teamMembers = player ? gameState.entities.filter(e => e.teamId === player.teamId) : [];
+    const teamCompositionKey = teamMembers.map(m => m.id).sort().join(',');
 
     useEffect(() => {
         const onStompConnect = (frame: IFrame) => {
@@ -103,6 +112,10 @@ const Game: FC = () => {
                                 });
                             }
                             dispatch({ type: 'PEACE_PROPOSAL_CONCLUDED' });
+                            break;
+                        }
+                        case 'team_invite': {
+                            dispatch({ type: 'TEAM_INVITE_RECEIVED', payload: update.payload as TeamInviteEvent });
                             break;
                         }
                         // Здесь можно будет обрабатывать и другие личные события в будущем
@@ -192,6 +205,9 @@ const Game: FC = () => {
                     
                     case 'ability_casted':
                         dispatch({ type: 'ABILITY_CASTED', payload: update.payload as AbilityCastedEvent });
+                        break;
+                    case 'team_updated':
+                        dispatch({ type: 'TEAM_UPDATED', payload: update.payload as TeamUpdatedEvent });
                         break;
                 }
             }
@@ -333,9 +349,12 @@ const Game: FC = () => {
                                     <NotificationUI />
                                     <TurnOrder />
                                     <CombatOutcomeNotification />
+                                    <TeamInviteUI />
                                     <AbilityBar />
                                     <MainHUD />
                                     <PeaceProposalUI />
+                                    <PlayerContextMenu />
+                                    <TeamStatusUI key={teamCompositionKey} />
                                 </div>
                                 <p>Click on the map to move your character. Click on another character to attack.</p>
                             </>

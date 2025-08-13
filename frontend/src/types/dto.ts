@@ -270,3 +270,22 @@ export interface ProposePeaceRequest {}
 export interface RespondToPeaceRequest {
     accepted: boolean;
 }
+
+export interface InviteToTeamRequest {
+    targetPlayerId: string;
+}
+
+export interface RespondToTeamRequest {
+    accepted: boolean;
+}
+
+export interface TeamInviteEvent {
+    fromPlayerId: string;
+    fromPlayerName: string;
+    toTeamId: string;
+}
+
+export interface TeamUpdatedEvent {
+    teamId: string;
+    memberIds: string[];
+}

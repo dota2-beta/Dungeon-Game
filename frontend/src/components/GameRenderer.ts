@@ -2,9 +2,8 @@ import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import type { GameSessionStateDto, PlayerAction, EntityStateDto, EntityStatsUpdatedEvent, Hex, EntityMovedEvent, TileDto, AbilityCastedEvent } from '../types/dto';
 import { publish } from '../api/websocketService';
 import { gsap } from 'gsap';
-import { Grid, AStarFinder } from 'pathfinding';
 import { Pathfinder } from '../game/Pathfinder';
-import type { ExtendedGameSessionState } from '../context/GameContext';
+import type { ExtendedGameSessionState, PlayerStateDto } from '../context/GameContext';
 
 const HEX_SIZE = 24;
 
@@ -52,14 +51,11 @@ const getHexesInRange = (center: Hex, radius: number): Hex[] => {
     const results: Hex[] = [];
     for (let dx = -radius; dx <= radius; dx++) {
         for (let dy = Math.max(-radius, -dx - radius); dy <= Math.min(radius, -dx + radius); dy++) {
-            const dz = -dx - dy;
             results.push(hexAdd(center, { q: dx, r: dy }));
         }
     }
     return results;
 };
-
-const getNeighbor = (hex: Hex, direction: number): Hex => hexAdd(hex, HEX_DIRECTIONS[direction]);
 
 export class GameRenderer {
     private app: Application | null = null;
@@ -69,24 +65,24 @@ export class GameRenderer {
     private entityContainer: Container | null = null;
     private uiContainer: Container | null = null;
 
-    private gameState: GameSessionStateDto | null = null;
+    private gameState: ExtendedGameSessionState | null = null;
     private entityGraphics: Map<string, Graphics> = new Map();
     private hoveredEntityId: string | null = null;
     private damagedEntityInfo: { id: string; clearTime: number } | null = null;
 
     private pathfinder: Pathfinder | null = null;
     private isMovingAlongPath = false;
-    private movementQueue: Hex[] = [];
-    private isExecutingMove = false;
     private selectedAbilityId: string | null = null;
     private hoveredHex: Hex | null = null;
     private aoeHighlightGraphics: Graphics | null = null;
+    private dispatch: (action: any) => void;
 
-    constructor(container: HTMLDivElement) {
+    constructor(container: HTMLDivElement, dispatch: (action: any) => void) {
         this.canvasContainer = container;
+        this.dispatch = dispatch;
     }
 
-    public async init(initialState: GameSessionStateDto) {
+    public async init(initialState: ExtendedGameSessionState) {
         if (this.app || !initialState.mapState) return;
 
         const canvasWidth = 1200;
@@ -113,10 +109,12 @@ export class GameRenderer {
             this.canvasContainer.innerHTML = '';
             this.canvasContainer.appendChild(this.app.canvas);
 
-            this.setupEventHandlers();
             this.app.ticker.add(this.updateAnimations.bind(this));
             
-            this.gameState = initialState;
+            // ИСПРАВЛЕНО: Сначала присваиваем состояние
+            this.gameState = initialState; 
+            // И только потом настраиваем обработчики
+            this.setupEventHandlers();
             
             console.log('%cRenderer: Building Pathfinder...', 'color: blue');
             this.pathfinder = new Pathfinder(initialState.mapState);
@@ -131,7 +129,7 @@ export class GameRenderer {
                 console.log(`Centering camera on player at [q:${player.position.q}, r:${player.position.r}]`);
                 this.centerCameraOn(player.position, false);
             }
-            }
+        }
     }
 
     public update(newState: ExtendedGameSessionState) {
@@ -141,29 +139,56 @@ export class GameRenderer {
             }
             return;
         }
-        const newSelectedId = newState.selectedAbility?.abilityTemplateId || null;
-    
-        console.log(
-            `%c[GameRenderer] update() called. Internal selectedAbilityId was '${this.selectedAbilityId}', received '${newSelectedId}'. Updating...`,
-            'color: #3498db; font-weight: bold;'
-        );
-
+        
         this.gameState = newState;
         this.selectedAbilityId = newState.selectedAbility?.abilityTemplateId || null;
 
-        if (this.selectedAbilityId) {
-            console.log('GameRenderer updated. Selected ability is now:', this.selectedAbilityId);
-        }
         this.drawEntities();
     }
     
     private setupEventHandlers() {
         if (!this.app || !this.worldContainer) return;
+
+        this.worldContainer.removeAllListeners();
+        if (this.app.canvas.oncontextmenu) {
+            this.app.canvas.oncontextmenu = null;
+        }
+
+        this.app.canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+
+            if (!this.gameState || !this.worldContainer) return;
+            
+            const worldPos = this.worldContainer.toLocal({ x: e.offsetX, y: e.offsetY });
+            const targetHex = pixelToHex(worldPos.x, worldPos.y);
+            
+            const targetEntity = this.gameState.entities.find(entity => 
+                !entity.dead && 
+                entity.position.q === targetHex.q && 
+                entity.position.r === targetHex.r
+            ) as PlayerStateDto | undefined;
+
+            const player = this.gameState.entities.find(e => e.id === this.gameState!.yourPlayerId);
+
+            if (targetEntity && targetEntity.type === 'PLAYER' && targetEntity.id !== player?.id) {
+                this.dispatch({ 
+                    type: 'OPEN_CONTEXT_MENU', 
+                    payload: { 
+                        x: e.clientX, 
+                        y: e.clientY, 
+                        targetPlayer: targetEntity 
+                    } 
+                });
+            } else {
+                this.dispatch({ type: 'CLOSE_CONTEXT_MENU' });
+            }
+        });
+
         this.worldContainer.interactive = true;
-        
         this.worldContainer.on('pointerdown', (event) => {
-            console.log('--- Pointer Down Event ---');
-            console.log('Selected ability at time of click:', this.selectedAbilityId);
+            if (event.nativeEvent.button === 2) {
+                return;
+            }
 
             if (!this.gameState) return;
             const player = this.gameState.entities.find(e => e.id === this.gameState!.yourPlayerId);
@@ -172,44 +197,39 @@ export class GameRenderer {
             const pos = event.data.getLocalPosition(this.worldContainer!);
             const targetHex = pixelToHex(pos.x, pos.y);
         
+            this.dispatch({ type: 'CLOSE_CONTEXT_MENU' });
+
             if (this.selectedAbilityId) {
-                console.log(`SUCCESS: Publishing CAST_SPELL with abilityId: '${this.selectedAbilityId}'`);
                 publish(`/app/session/${this.gameState.sessionId}/action`, {
                     actionType: 'CAST_SPELL',
                     abilityId: this.selectedAbilityId,
                     targetHex: targetHex
                 });
-                
-                this.canvasContainer.style.cursor = 'default';
-        
             } else {
-                console.error(`FAILURE: Attempted to cast, but this.selectedAbilityId is NULL or UNDEFINED.`);
-                console.log("Current gameState at time of click:", this.gameState);
-
                 const targetEntity = this.gameState.entities.find(e => 
-                    !e.dead && 
-                    e.position.q === targetHex.q && 
-                    e.position.r === targetHex.r 
+                    !e.dead && e.position.q === targetHex.q && e.position.r === targetHex.r 
                 );
                 
+                //const isTargetAnAlly = player.teamId && player.teamId === targetEntity?.teamId;
+
+                // Если цель существует, это не мы сами и это НЕ СОЮЗНИК
                 if (targetEntity && targetEntity.id !== player.id) {
+                    console.log(`Target is not an ally. Sending ATTACK command to ${targetEntity.id}`);
                     publish(`/app/session/${this.gameState.sessionId}/action`, { actionType: 'ATTACK', targetId: targetEntity.id });
                 } else {
-                    console.log(`%c[CLIENT] Sending MOVE action. Current pos: (${player.position.q},${player.position.r}), Target pos: (${targetHex.q},${targetHex.r})`, 'color: blue; font-weight: bold;');
+                    // Во всех остальных случаях (цели нет, цель - это мы, цель - союзник) - двигаемся.
                     this.handleMoveRequest(player, targetHex);
                 }
             }
         });
+
         this.worldContainer.on('pointermove', (event) => {
             if (!this.worldContainer) return;
-        
             const pos = event.data.getLocalPosition(this.worldContainer);
             const currentHoveredHex = pixelToHex(pos.x, pos.y);
-        
             if (!this.hoveredHex || this.hoveredHex.q !== currentHoveredHex.q || this.hoveredHex.r !== currentHoveredHex.r) {
                 this.hoveredHex = currentHoveredHex;
             }
-        
             if (this.selectedAbilityId) {
                 this.canvasContainer.style.cursor = 'crosshair';
             } else {
@@ -226,7 +246,7 @@ export class GameRenderer {
         if (path.length > 1) {
             this.executeMovePath(path);
         } else {
-            console.warn("No path found.");
+            console.warn("No path found or target is the same as start.");
         }
     }
 
@@ -250,31 +270,6 @@ export class GameRenderer {
                 this.worldContainer?.removeChild(projectile);
                 projectile.destroy();
             }
-        });
-    }
-
-    private executeNextMoveStep() {
-        if (this.movementQueue.length === 0) {
-            console.log("Path finished.");
-            this.isExecutingMove = false;
-            return;
-        }
-
-        const player = this.gameState!.entities.find((e: EntityStateDto) => e.id === this.gameState!.yourPlayerId)!;
-        if (player.state === 'COMBAT' && player.currentAP < 1) {
-            console.log("Out of AP, stopping path.");
-            this.movementQueue = []; 
-            this.isExecutingMove = false;
-            return;
-        }
-
-        this.isExecutingMove = true;
-        const nextStep = this.movementQueue[0];
-
-        console.log(`Sending move step to: q=${nextStep.q}, r=${nextStep.r}`);
-        publish(`/app/session/${this.gameState!.sessionId}/action`, {
-            actionType: 'MOVE',
-            targetHex: nextStep
         });
     }
 
@@ -339,21 +334,22 @@ export class GameRenderer {
             graphics.clear();
             
             const isSelf = entity.id === state.yourPlayerId;
-            const isHoveredEnemy = this.hoveredEntityId === entity.id;
             const isDamaged = this.damagedEntityInfo?.id === entity.id;
 
             if (entity.dead) {
                 graphics.beginFill(0x333333, 0.6).lineStyle(1, 0x000000, 0.6);
             } else {
                 const baseColor = entity.type === 'PLAYER' ? 0x00FF00 : 0xFF0000;
-                const finalColor = isDamaged ? 0xFFFFFF : baseColor;
-                graphics.beginFill(finalColor, 1.0);
+                graphics.beginFill(baseColor, 1.0);
                 
                 if (isDamaged) graphics.tint = 0xFF0000;
                 else graphics.tint = 0xFFFFFF;
                 
-                if (isSelf) graphics.lineStyle(2, 0xFFFFFF, 1);
-                else if (isHoveredEnemy) graphics.lineStyle(2, 0xFFFF00, 1);
+                if (isSelf) {
+                    graphics.lineStyle(2, 0xFFFFFF, 1);
+                } else if(entity.teamId && entity.teamId === state.entities.find(e => e.id === state.yourPlayerId)?.teamId) {
+                    graphics.lineStyle(2, 0x00BFFF, 1); // Голубой для союзников
+                }
             }
 
             graphics.drawCircle(0, 0, HEX_SIZE * 0.5);
@@ -378,8 +374,6 @@ export class GameRenderer {
         const entityGfx = this.entityGraphics.get(event.entityId);
         const entityState = this.gameState?.entities.find((e: EntityStateDto) => e.id === event.entityId);
         if (!entityGfx || !entityState) return;
-
-        const isMyPlayerConfirmingStep = event.entityId === this.gameState?.yourPlayerId && this.isExecutingMove;
 
         const pixelPos = hexToPixel(event.newPosition);
 
@@ -452,7 +446,7 @@ export class GameRenderer {
         this.drawEntities();
     }
 
-    private updateAnimations(ticker: any) {
+    private updateAnimations() {
         const now = Date.now();
         if (this.damagedEntityInfo && now > this.damagedEntityInfo.clearTime) {
             this.damagedEntityInfo = null;
@@ -460,46 +454,46 @@ export class GameRenderer {
         }
     }
 
-private gameLoop(): void {
-    if (!this.aoeHighlightGraphics || !this.gameState) {
-        return;
-    }
-
-    this.aoeHighlightGraphics.clear();
-
-    const player = this.gameState.entities.find(e => e.id === this.gameState!.yourPlayerId);
-    if (this.selectedAbilityId && this.hoveredHex && player) {
-        
-        const MOCK_ABILITY_DATA = new Map<string, { radius: number; range: number }>([
-            ["fireball",    { radius: 1, range: 6 }],
-            ["lesser_heal", { radius: 0, range: 5 }]
-        ]);
-        const abilityData = MOCK_ABILITY_DATA.get(this.selectedAbilityId);
-        const radius = abilityData?.radius ?? 0;
-        const range = abilityData?.range ?? 0;
-        
-        const distance = hexDistance(player.position, this.hoveredHex);
-        const color = distance <= range ? 0x00FF00 : 0xFF0000;
-        const hexesToHighlight = getHexesInRange(this.hoveredHex, radius);
-
-        const corners: number[] = [];
-        for (let i = 0; i < 6; i++) {
-            const angle = 2 * Math.PI / 6 * (i + 0.5); 
-            corners.push(HEX_SIZE * Math.cos(angle), HEX_SIZE * Math.sin(angle));
+    private gameLoop(): void {
+        if (!this.aoeHighlightGraphics || !this.gameState) {
+            return;
         }
 
-        this.aoeHighlightGraphics.position.set(0, 0);
+        this.aoeHighlightGraphics.clear();
 
-        for (const hex of hexesToHighlight) {
-            const pixelPos = hexToPixel(hex);
+        const player = this.gameState.entities.find(e => e.id === this.gameState!.yourPlayerId);
+        if (this.selectedAbilityId && this.hoveredHex && player) {
             
-            this.aoeHighlightGraphics
-                .poly(corners.map((point, index) => index % 2 === 0 ? point + pixelPos.x : point + pixelPos.y))
-                .fill({ color: color, alpha: 0.3 })
-                .stroke({ width: 1, color: color, alpha: 0.7 });
+            const MOCK_ABILITY_DATA = new Map<string, { radius: number; range: number }>([
+                ["fireball",    { radius: 1, range: 6 }],
+                ["lesser_heal", { radius: 0, range: 5 }]
+            ]);
+            const abilityData = MOCK_ABILITY_DATA.get(this.selectedAbilityId);
+            const radius = abilityData?.radius ?? 0;
+            const range = abilityData?.range ?? 0;
+            
+            const distance = hexDistance(player.position, this.hoveredHex);
+            const color = distance <= range ? 0x00FF00 : 0xFF0000;
+            const hexesToHighlight = getHexesInRange(this.hoveredHex, radius);
+
+            const corners: number[] = [];
+            for (let i = 0; i < 6; i++) {
+                const angle = 2 * Math.PI / 6 * (i + 0.5); 
+                corners.push(HEX_SIZE * Math.cos(angle), HEX_SIZE * Math.sin(angle));
+            }
+
+            this.aoeHighlightGraphics.position.set(0, 0);
+
+            for (const hex of hexesToHighlight) {
+                const pixelPos = hexToPixel(hex);
+                
+                this.aoeHighlightGraphics
+                    .poly(corners.map((point, index) => index % 2 === 0 ? point + pixelPos.x : point + pixelPos.y))
+                    .fill({ color: color, alpha: 0.3 })
+                    .stroke({ width: 1, color: color, alpha: 0.7 });
+            }
         }
     }
-}
 
     private centerCameraOn(hex: Hex, smooth: boolean = false): void {
         if (!this.app || !this.worldContainer) {

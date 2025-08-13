@@ -10,13 +10,13 @@ const GameCanvas: React.FC = () => {
     useEffect(() => {
         if (canvasRef.current && !rendererRef.current) {
             console.log("GameCanvas: Initializing GameRenderer...");
-            rendererRef.current = new GameRenderer(canvasRef.current);
+            rendererRef.current = new GameRenderer(canvasRef.current, dispatch); 
         }
         
         if (rendererRef.current) {
             rendererRef.current.update(gameState);
         }
-    }, [gameState]);
+    }, [gameState, dispatch]);
 
     useEffect(() => {
         const attackInfo = gameState.lastAttack;
