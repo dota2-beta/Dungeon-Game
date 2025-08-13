@@ -222,4 +222,11 @@ public class GameSessionManager implements GameSessionEndListener {
             return;
         session.handlePeaceResponse(combatId, name, accepted);
     }
+
+    public void leaveFromTeam(String sessionId, String userId) {
+        GameSession session = activeSessions.get(sessionId);
+        if(session == null)
+            return;
+        session.handleLeaveFromTeam(userId);
+    }
 }

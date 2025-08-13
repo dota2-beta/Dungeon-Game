@@ -61,7 +61,8 @@ public class EntityFactory {
                 .state(EntityStateType.EXPLORING)
                 .userId(userId)
                 .websocketSessionId(websocketSessionId)
-                .teamId(newEntityId)
+                //.teamId(newEntityId)
+                .teamId(UUID.randomUUID().toString())
                 .aggroRadius(stats.getAggroRadius())
                 .abilities(playerAbilities)
                 .name(playerClassTemplate.getName())
@@ -109,6 +110,7 @@ public class EntityFactory {
                 .state(EntityStateType.EXPLORING)
                 .abilities(monsterAbilities)
                 .teamId(newEntityId)
+                .teamId(UUID.randomUUID().toString())
                 .build();
     }
 }

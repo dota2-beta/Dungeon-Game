@@ -685,10 +685,15 @@ public class GameSession implements CombatEndListener {
         this.pendingInvites.put(targetUser.getUserId(), inviterUser.getTeamId());
 
         TeamInviteEvent event = new TeamInviteEvent(inviterUser.getId(), inviterUser.getName(), inviterUser.getTeamId());
+
+        Map<String, Object> wrappedMessage = new HashMap<>();
+        wrappedMessage.put("actionType", "team_invite");
+        wrappedMessage.put("payload", event);
+
         messagingTemplate.convertAndSendToUser(
                 targetUser.getUserId(),
                 PRIVATE_EVENTS_QUEUE,
-                event
+                wrappedMessage
         );
     }
 
@@ -703,7 +708,7 @@ public class GameSession implements CombatEndListener {
     }
 
     public void handleRespondPlayerToTeamInvite(Player invitedUser, boolean accepted) {
-        String teamIdToJoin = pendingInvites.get(invitedUser.getId());
+        String teamIdToJoin = pendingInvites.get(invitedUser.getUserId());
 
         if (teamIdToJoin == null) {
             sendErrorMessageToPlayer(invitedUser, "You have no pending invitation.", "NO_INVITE_FOUND");
@@ -772,7 +777,7 @@ public class GameSession implements CombatEndListener {
 
             PeaceProposalResultEvent event =
                     new PeaceProposalResultEvent(false,
-                                                 "System: Monsters do not agree to peace.");
+                                                 "System: Monsters do not agree to peace");
             publishUpdateToCombatants(combatInstance, "peace_proposal_result", event);
         }
     }
@@ -836,5 +841,25 @@ public class GameSession implements CombatEndListener {
                     updateMessage
             );
         }
+    }
+
+    private List<Entity> getTeammatesByEntityId(Entity entity) {
+        return this.entities.values().stream()
+                .filter(e -> e.getTeamId().equals(entity.getTeamId()))
+                .toList();
+    }
+
+    public void handleLeaveFromTeam(String userId) {
+        Player playerWhoLeaves = getPlayerByUserId(userId);
+        if(playerWhoLeaves == null)
+            return;
+
+        String oldTeamId = playerWhoLeaves.getTeamId();
+
+        String newSoloTeamId = UUID.randomUUID().toString();
+        playerWhoLeaves.setTeamId(newSoloTeamId);
+
+        publishTeamUpdated(oldTeamId);
+        publishTeamUpdated(playerWhoLeaves.getTeamId());
     }
 }

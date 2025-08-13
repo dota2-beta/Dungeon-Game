@@ -92,6 +92,15 @@ public class WebSocketController {
         gameSessionManager.respondPlayerToTeamInvite(sessionId, currentUserId, request.isAccepted());
     }
 
+    @MessageMapping("/session/{sessionId}/team/leave")
+    public void onLeaveFromTeam(
+            @DestinationVariable String sessionId,
+            Principal principal
+    ) {
+        String currentUserId = principal.getName();
+        gameSessionManager.leaveFromTeam(sessionId, currentUserId);
+    }
+
     @MessageMapping("/session/{sessionId}/combat/{combatId}/propose-peace")
     public void onProposePeace(
             @DestinationVariable String sessionId,
