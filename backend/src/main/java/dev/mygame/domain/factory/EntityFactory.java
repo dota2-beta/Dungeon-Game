@@ -30,7 +30,8 @@ public class EntityFactory {
      * @param startPosition Начальная позиция на карте
      * @return Готовый объект Player или null, если шаблон не найден
      */
-    public Player createPlayer(String classTemplateId, String userId, String websocketSessionId, Hex startPosition) {
+    public Player createPlayer(String classTemplateId, String userId, String username,
+                               String websocketSessionId, Hex startPosition) {
         PlayerClassTemplate playerClassTemplate = gameDataLoader.getPlayerClassTemplate(classTemplateId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "No player class template found with id " + classTemplateId));
@@ -65,7 +66,7 @@ public class EntityFactory {
                 .teamId(UUID.randomUUID().toString())
                 .aggroRadius(stats.getAggroRadius())
                 .abilities(playerAbilities)
-                .name(playerClassTemplate.getName())
+                .name(username)
                 .build();
     }
 

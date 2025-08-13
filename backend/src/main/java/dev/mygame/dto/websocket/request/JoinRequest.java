@@ -7,6 +7,7 @@ import lombok.Data;
  */
 @Data
 public class JoinRequest {
-    public String sessionId;
-    public String userId;
+    private String sessionId;
+    private String name;
+    private String templateId;
 }

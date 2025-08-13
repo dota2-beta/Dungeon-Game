@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -44,5 +45,14 @@ public class GameDataLoader {
 
     public Optional<AbilityTemplate> getAbilityTemplate(String templateId) {
         return Optional.ofNullable(abilityTemplateMap.get(templateId));
+    }
+
+
+    public List<PlayerClassTemplate> getAllPlayerClasses() {
+        return playerClassTemplateMap.values().stream().toList();
+    }
+
+    public List<AbilityTemplate> getAllAbilities() {
+        return  abilityTemplateMap.values().stream().toList();
     }
 }

@@ -7,6 +7,7 @@ import dev.mygame.data.MapLoader;
 import dev.mygame.domain.factory.EntityFactory;
 import dev.mygame.domain.model.map.GameMapHex;
 import dev.mygame.domain.model.map.Hex;
+import dev.mygame.dto.websocket.request.JoinRequest;
 import dev.mygame.dto.websocket.request.PlayerAction;
 import dev.mygame.domain.model.GameObject;
 import dev.mygame.domain.model.Player;
@@ -114,7 +115,7 @@ public class GameSessionManager implements GameSessionEndListener {
         return sessionId;
     }
 
-    public void joinPlayer(String userId, String sessionId, String websocketSessionId) {
+    public void joinPlayer(JoinRequest request, String userId, String sessionId, String websocketSessionId) {
         GameSession gameSession = activeSessions.get(sessionId);
 
         if (gameSession == null) {
@@ -127,15 +128,13 @@ public class GameSessionManager implements GameSessionEndListener {
 
          if (userAlreadyInSession) {
              // TODO: Обработать случай переподключения или ошибки (пользователь уже есть)
-             // найти существующего игрока, обновить его websocketSessionId и отправить состояние.
-             //throw new IllegalArgumentException("User " + userId + " is already in session " + sessionId);
          }
         GameMapHex gameMap = gameSession.getGameMap();
 
-        String playerClassId = "warrior"; // TODO: переделать, чтобы принималось от клиента
+        String playerClassId = request.getTemplateId();
         Hex startPosition = gameMap.getAvailablePlayerSpawnPoint();
 
-        Player player = entityFactory.createPlayer(playerClassId, userId, websocketSessionId, startPosition);
+        Player player = entityFactory.createPlayer(playerClassId, userId,request.getName(), websocketSessionId, startPosition);
 
         gameSession.addEntity(player);
 

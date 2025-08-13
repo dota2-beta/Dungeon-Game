@@ -43,3 +43,14 @@ abilities:
     effects:
       - type: "DAMAGE"
         amount: 25
+  - template-id: "powershot"
+    name: "powershot"
+    description: "powershot"
+    cost-ap: 2
+    cooldown: 1
+    range: 5
+    target-type: "ENEMY"
+    area-of-effect-radius: 0
+    effects:
+      - type: "DAMAGE"
+        amount: 25

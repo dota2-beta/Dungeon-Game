@@ -34,7 +34,7 @@ public class WebSocketController {
         String userId = principal.getName();
 
         try {
-            gameSessionManager.joinPlayer(userId, sessionId, websocketSessionId);
+            gameSessionManager.joinPlayer(joinRequest, userId, sessionId, websocketSessionId);
         } catch (Exception e) {
             log.error("Error joining player {} to session {}:", userId, sessionId, e);
         }

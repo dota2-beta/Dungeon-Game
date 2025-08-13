@@ -3,31 +3,44 @@ player-classes:
     name: "Warrior"
     description: "A stalwart fighter who excels in close combat."
     abilities:
-      - "fireball"
-      - "lesser_heal"
+      - "strong blow"
     stats:
-      maxHp: 120
+      maxHp: 150
       attack: 12
       defense: 8
       initiative: 10
       maxAP: 8
       attackRange: 1
-      aggroRadius: 0 # игроки сами инициируют бой
+      aggroRadius: 0
 
-  - templateId: "rogue"
-    name: "Rogue"
-    description: "A nimble rogue who strikes from the shadows."
+  - templateId: "Healer"
+    name: "Healer"
+    description: "A master of restorative magic who mends allies' wounds and keeps the party alive."
     abilities:
-      - "fireball"
       - "lesser_heal"
     stats:
-      maxHp: 85
+      maxHp: 110
       attack: 10
       defense: 4
       initiative: 15
       maxAP: 8
-      attackRange: 1
+      attackRange: 3
       aggroRadius: 0
+
+  - templateId: "Archer"
+    name: "Archer"
+    description: "A peerless marksman who strikes down foes from a great distance."
+    abilities:
+      - "powershot"
+    stats:
+      maxHp: 120
+      attack: 10
+      defense: 4
+      initiative: 15
+      maxAP: 8
+      attackRange: 5
+      aggroRadius: 0
+
 
   - templateId: "mage"
     name: "Mage"
@@ -36,10 +49,10 @@ player-classes:
       - "fireball"
       - "lesser_heal"
     stats:
-      maxHp: 70
+      maxHp: 90
       attack: 5
       defense: 2
       initiative: 12
-      maxAP: 7
-      attackRange: 5
+      maxAP: 9
+      attackRange: 3
       aggroRadius: 0
