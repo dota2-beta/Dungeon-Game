@@ -110,8 +110,7 @@ public class EntityFactory {
                 .aggroRadius(stats.getAggroRadius())
                 .state(EntityStateType.EXPLORING)
                 .abilities(monsterAbilities)
-                .teamId(newEntityId)
-                .teamId(UUID.randomUUID().toString())
+                .teamId("monster")
                 .build();
     }
 }
