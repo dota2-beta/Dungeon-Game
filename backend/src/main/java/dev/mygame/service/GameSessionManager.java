@@ -228,4 +228,14 @@ public class GameSessionManager implements GameSessionEndListener {
             return;
         session.handleLeaveFromTeam(userId);
     }
+
+    public void resendStateToPlayer(String sessionId, String userId) {
+        GameSession gameSession = activeSessions.get(sessionId);
+        if (gameSession == null) {
+            log.warn("Attempted to resend state for non-existent session: {}", sessionId);
+            return;
+        }
+
+        sendInitialStateToPlayer(gameSession, userId);
+    }
 }

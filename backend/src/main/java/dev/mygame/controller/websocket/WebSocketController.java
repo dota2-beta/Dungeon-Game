@@ -119,4 +119,18 @@ public class WebSocketController {
     ) {
         gameSessionManager.handlePeaceResponse(sessionId, principal.getName(), combatId, request.isAccepted());
     }
+
+    /**
+     * Обрабатывает запрос от клиента на полную ресинхронизацию состояния.
+     * Срабатывает, когда игрок возвращается в активную вкладку.
+     */
+    @MessageMapping("/session/{sessionId}/request-state")
+    public void onRequestFullState(
+            @DestinationVariable String sessionId,
+            Principal principal
+    ) {
+        String userId = principal.getName();
+        log.info("User {} requested full state sync for session {}", userId, sessionId);
+        gameSessionManager.resendStateToPlayer(sessionId, userId);
+    }
 }
