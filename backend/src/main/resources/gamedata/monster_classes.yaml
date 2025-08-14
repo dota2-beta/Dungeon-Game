@@ -5,9 +5,9 @@ monster-classes:
       - "fireball"
       - "lesser_heal"
     stats:
-      maxHp: 35
-      attack: 8
-      defense: 2
+      maxHp: 70
+      attack: 15
+      defense: 20
       initiative: 12
       maxAP: 6
       attackRange: 1
@@ -47,9 +47,9 @@ monster-classes:
       - "lesser_heal"
     stats:
       maxHp: 500
-      attack: 25
-      defense: 10
+      attack: 30
+      defense: 100
       initiative: 15
       maxAP: 8
       attackRange: 3
-      aggroRadius: 10
+      aggroRadius: 6

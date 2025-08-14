@@ -7,7 +7,7 @@ player-classes:
     stats:
       maxHp: 150
       attack: 12
-      defense: 8
+      defense: 80
       initiative: 10
       maxAP: 8
       attackRange: 1
@@ -21,7 +21,7 @@ player-classes:
     stats:
       maxHp: 110
       attack: 10
-      defense: 4
+      defense: 40
       initiative: 15
       maxAP: 8
       attackRange: 3
@@ -35,7 +35,7 @@ player-classes:
     stats:
       maxHp: 120
       attack: 10
-      defense: 4
+      defense: 40
       initiative: 15
       maxAP: 8
       attackRange: 5
@@ -51,7 +51,7 @@ player-classes:
     stats:
       maxHp: 90
       attack: 5
-      defense: 2
+      defense: 30
       initiative: 12
       maxAP: 9
       attackRange: 3
