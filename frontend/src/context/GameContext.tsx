@@ -42,6 +42,7 @@ export interface ExtendedGameSessionState extends GameSessionStateDto {
     activeTeamInvite: TeamInviteEvent | null
     contextMenu: ContextMenuState
     abilities: AbilityTemplateDto[];
+    hoveredEntityId: string | null;
 }
 
 export type NotificationType = 'success' | 'error' | 'info';
@@ -78,6 +79,7 @@ const initialState: ExtendedGameSessionState = {
         targetPlayer: null,
     },
     abilities: [],
+    hoveredEntityId: null,
 };
 
 type GameAction =
@@ -108,7 +110,8 @@ type GameAction =
     | { type: 'TEAM_UPDATED'; payload: TeamUpdatedEvent }
     | { type: 'OPEN_CONTEXT_MENU'; payload: { x: number; y: number; targetPlayer: PlayerStateDto } }
     | { type: 'CLOSE_CONTEXT_MENU' }
-    | { type: 'SET_ABILITY_TEMPLATES'; payload: AbilityTemplateDto[] };;
+    | { type: 'SET_ABILITY_TEMPLATES'; payload: AbilityTemplateDto[] }
+    | { type: 'SET_HOVERED_ENTITY'; payload: string | null };
 
 const updateEntityInState = <T extends EntityStateDto>(
     entities: T[], 
@@ -166,21 +169,28 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                 lastAttack: { payload: action.payload, timestamp: Date.now() }
             };
         
-        case 'ENTITY_TOOK_DAMAGE': { 
+            case 'ENTITY_TOOK_DAMAGE': { 
+                const { targetEntityId, currentHp, currentDefense, dead, healToHp } = action.payload;
+    
                 const updatedEntities = state.entities.map(entity => {
-                    if (entity.id !== action.payload.targetEntityId) {
+                    if (entity.id !== targetEntityId) {
                         return entity;
                     }
-                    const newHp = action.payload.healToHp 
-                        ? entity.currentHp + action.payload.healToHp 
-                        : action.payload.currentHp;
-
+    
+                    if (healToHp && healToHp > 0) {
+                        return { ...entity, currentHp: currentHp };
+                    }
+    
+                    // КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ:
+                    // Мы берем `currentDefense` из payload'а и записываем его в поле `defense` нашего объекта.
                     return {
                         ...entity,
-                        currentHp: newHp > entity.maxHp ? entity.maxHp : newHp,
-                        dead: action.payload.dead
+                        currentHp: currentHp,
+                        defense: currentDefense, // <-- ИСПРАВЛЕНО ЗДЕСЬ
+                        dead: dead,
                     };
                 });
+    
                 return {
                     ...state,
                     entities: updatedEntities,
@@ -453,8 +463,8 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                 ...state,
                 abilities: action.payload,
             };
-            
-
+        case 'SET_HOVERED_ENTITY':
+            return { ...state, hoveredEntityId: action.payload };
         default:
             return state;
     }

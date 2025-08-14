@@ -38,6 +38,7 @@ import NotificationUI from './components/NotificationUI';
 import TeamInviteUI from './components/TeamInviteUI';
 import PlayerContextMenu from './components/PlayerContextMenu';
 import TeamStatusUI from './components/TeamStatusUI';
+import HoveredEntityHUD from './components/HoveredEntityHUD';
 
 const Game: FC = () => {
     const { gameState, dispatch, setErrorMessage } = useGame();
@@ -270,6 +271,26 @@ const Game: FC = () => {
         }
     }, [sessionId, isConnectedToServer, nickname, selectedClassId]);
 
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            // Проверяем, стала ли вкладка видимой
+            if (document.visibilityState === 'visible') {
+                console.log('Tab became visible. Requesting state sync.');
+                
+                // Если мы подключены и находимся в сессии, отправляем запрос
+                if (isConnectedToServer && sessionId) {
+                    publish(`/app/session/${sessionId}/request-state`, {});
+                }
+            }
+        };
+
+        // Добавляем слушатель события
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [isConnectedToServer, sessionId]);
+
     const handleCreateGame = () => {
         if (isConnectedToServer && !isLobbyFormInvalid) {
             setErrorMessage('');
@@ -438,6 +459,7 @@ const Game: FC = () => {
                                     backgroundColor: '#1d2327' 
                                 }}>
                                     <GameCanvas />
+                                    <HoveredEntityHUD />
                                     <NotificationUI />
                                     <TurnOrder />
                                     <CombatOutcomeNotification />

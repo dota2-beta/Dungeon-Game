@@ -1,50 +1,42 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import type { PlayerStateDto } from '../types/dto';
-
-const HealthBar: React.FC<{ current: number; max: number; isDamaged: boolean }> = ({ current, max, isDamaged }) => {
-    const percentage = max > 0 ? (current / max) * 100 : 0;
-    
-    const barColor = isDamaged 
-        ? '#ff4444' 
-        : percentage > 50 ? '#4CAF50' : percentage > 25 ? '#FFC107' : '#F44336';
-
-    return (
-        <div style={{
-            width: '100%',
-            height: '20px',
-            backgroundColor: '#555',
-            borderRadius: '5px',
-            overflow: 'hidden',
-            border: '1px solid #222',
-        }}>
-            <div style={{
-                width: `${percentage}%`,
-                height: '100%',
-                backgroundColor: barColor,
-                transition: 'width 0.3s ease-in-out, background-color 0.1s ease-in-out',
-            }} />
-        </div>
-    );
-};
+import HealthBar from './HealthBar';
+import ArmorBar from './ArmorBar';
 
 const PlayerHUD: React.FC = () => {
     const { gameState } = useGame();
     const [isDamaged, setIsDamaged] = useState(false);
+    const [isArmorHit, setIsArmorHit] = useState(false);
     
+    // --- НОВОЕ: Сохраняем максимальное значение брони ---
+    const [maxDefense, setMaxDefense] = useState<number>(0);
+
     const lastProcessedTimestamp = useRef<number | null>(null);
 
     const player = gameState.entities.find(e => e.id === gameState.yourPlayerId) as PlayerStateDto | undefined;
     const lastDamageInfo = gameState.lastDamage;
+    
+    // Эффект для сохранения максимальной брони при появлении игрока
+    useEffect(() => {
+        if (player && player.defense > maxDefense) {
+            setMaxDefense(player.defense);
+        }
+    }, [player, maxDefense]);
 
     useEffect(() => {
         if (!lastDamageInfo || !player) return;
-
         const { payload, timestamp } = lastDamageInfo;
 
         if (payload.targetEntityId === player.id && timestamp !== lastProcessedTimestamp.current) {
             lastProcessedTimestamp.current = timestamp;
-            setIsDamaged(true);
+            
+            if (payload.damageToHp && payload.damageToHp > 0) {
+                setIsDamaged(true);
+            }
+            if (payload.absorbedByArmor && payload.absorbedByArmor > 0) {
+                setIsArmorHit(true);
+            }
         }
     }, [lastDamageInfo, player]);
 
@@ -113,8 +105,23 @@ const PlayerHUD: React.FC = () => {
                         {player.currentHp} / {player.maxHp}
                     </span>
                 </div>
-                <HealthBar current={player.currentHp} max={player.maxHp} isDamaged={isDamaged} />
+                <div style={{ height: '20px', width: '100%', borderRadius: '5px', overflow: 'hidden', border: '1px solid #222' }}>
+                    <HealthBar current={player.currentHp} max={player.maxHp} isDamaged={isDamaged} />
+                </div>
             </div>
+            {maxDefense > 0 && ( // Показываем блок, только если есть броня
+                <div style={{ marginTop: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                        <span>Armor</span>
+                        <span style={{ color: isArmorHit ? '#FFFFFF' : '#3498db', transition: 'color 0.1s ease-in-out' }}>
+                            {player.defense} / {maxDefense}
+                        </span>
+                    </div>
+                    <div style={{ height: '20px', width: '100%', borderRadius: '5px', overflow: 'hidden', border: '1px solid #222' }}>
+                        <ArmorBar current={player.defense} max={maxDefense} isHit={isArmorHit} />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

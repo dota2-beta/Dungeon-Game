@@ -77,7 +77,7 @@ export class GameRenderer {
     private aoeHighlightGraphics: Graphics | null = null;
     private dispatch: (action: any) => void;
 
-    private abilityTemplates: AbilityTemplateDto[] = [];
+    private lastHoveredEntityId: string | null = null;
 
     constructor(container: HTMLDivElement, dispatch: (action: any) => void) {
         this.canvasContainer = container;
@@ -144,7 +144,6 @@ export class GameRenderer {
         
         this.gameState = newState;
         this.selectedAbilityId = newState.selectedAbility?.abilityTemplateId || null;
-        this.abilityTemplates = newState.abilities;
         
         this.drawEntities();
     }
@@ -265,30 +264,28 @@ export class GameRenderer {
             }
         });
 
-        // this.worldContainer.on('pointermove', (event) => {
-        //     if (!this.worldContainer) return;
-        //     const pos = event.data.getLocalPosition(this.worldContainer);
-        //     const currentHoveredHex = pixelToHex(pos.x, pos.y);
-        //     if (!this.hoveredHex || this.hoveredHex.q !== currentHoveredHex.q || this.hoveredHex.r !== currentHoveredHex.r) {
-        //         this.hoveredHex = currentHoveredHex;
-        //     }
-        //     if (this.selectedAbilityId) {
-        //         this.canvasContainer.style.cursor = 'crosshair';
-        //     } else {
-        //         this.canvasContainer.style.cursor = 'default';
-        //     }
-        // });
         this.worldContainer.on('pointermove', (event) => {
             if (!this.worldContainer || !this.gameState) return;
-
             const pos = event.data.getLocalPosition(this.worldContainer);
             const currentHoveredHex = pixelToHex(pos.x, pos.y);
-
-            // Перерисовываем, только если хекс изменился
+    
+            // --- НАЧАЛО ИЗМЕНЕНИЙ ---
+            // Ищем сущность под курсором
+            const hoveredEntity = this.gameState.entities.find(e => 
+                !e.dead && e.position.q === currentHoveredHex.q && e.position.r === currentHoveredHex.r
+            );
+            const currentHoveredId = hoveredEntity ? hoveredEntity.id : null;
+    
+            // Отправляем событие, только если ID изменился
+            if (currentHoveredId !== this.lastHoveredEntityId) {
+                this.dispatch({ type: 'SET_HOVERED_ENTITY', payload: currentHoveredId });
+                this.lastHoveredEntityId = currentHoveredId;
+            }
+            // --- КОНЕЦ ИЗМЕНЕНИЙ ---
+    
             if (!this.hoveredHex || this.hoveredHex.q !== currentHoveredHex.q || this.hoveredHex.r !== currentHoveredHex.r) {
                 this.hoveredHex = currentHoveredHex;
-                // Вызываем перерисовку подсветки с актуальным состоянием
-                this.drawAbilityHighlight(this.gameState, this.hoveredHex);
+                if(this.gameState) this.drawAbilityHighlight(this.gameState, this.hoveredHex);
             }
             
             this.canvasContainer.style.cursor = this.selectedAbilityId ? 'crosshair' : 'default';
@@ -372,44 +369,6 @@ export class GameRenderer {
             this.tileContainer!.addChild(hexGraphics);
         });
     }
-
-    // private drawEntities(state: ExtendedGameSessionState) {
-    //     if (!this.entityContainer) return;
-    //     const seenEntityIds = new Set<string>();
-    //     const yourPlayerTeamId = state.entities.find(e => e.id === state.yourPlayerId)?.teamId;
-    //     state.entities.forEach((entity: EntityStateDto) => {
-    //         seenEntityIds.add(entity.id);
-    //         let graphics = this.entityGraphics.get(entity.id);
-    //         if (!graphics) {
-    //             graphics = new Graphics();
-    //             this.entityGraphics.set(entity.id, graphics);
-    //             this.entityContainer!.addChild(graphics);
-    //         }
-    //         graphics.clear();
-    //         const isSelf = entity.id === state.yourPlayerId;
-    //         const isDamaged = this.damagedEntityInfo?.id === entity.id;
-    //         if (entity.dead) {
-    //             graphics.beginFill(0x333333, 0.6).lineStyle(1, 0x000000, 0.6);
-    //         } else {
-    //             const baseColor = entity.type === 'PLAYER' ? 0x00FF00 : 0xFF0000;
-    //             graphics.beginFill(baseColor, 1.0);
-    //             if (isDamaged) graphics.tint = 0xFF0000;
-    //             else graphics.tint = 0xFFFFFF;
-    //             if (isSelf) graphics.lineStyle(2, 0xFFFFFF, 1);
-    //             else if (entity.teamId && entity.teamId === yourPlayerTeamId) graphics.lineStyle(2, 0x00BFFF, 1);
-    //         }
-    //         graphics.drawCircle(0, 0, HEX_SIZE * 0.5).endFill();
-    //         const pixelPos = hexToPixel(entity.position);
-    //         if (!gsap.isTweening(graphics.position)) graphics.position.set(pixelPos.x, pixelPos.y);
-    //     });
-    //     this.entityGraphics.forEach((graphics, entityId) => {
-    //         if (!seenEntityIds.has(entityId)) {
-    //             this.entityContainer!.removeChild(graphics);
-    //             graphics.destroy();
-    //             this.entityGraphics.delete(entityId);
-    //         }
-    //     });
-    // }
 
     private drawEntities() {
         if (!this.entityContainer || !this.gameState) return;

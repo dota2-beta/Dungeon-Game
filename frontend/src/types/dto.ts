@@ -85,6 +85,7 @@ export interface EntityStateDto {
     dead: boolean;
     teamId?: string;
     abilities: AbilityStateDto[];
+    defense: number;
 }
 
 /**
@@ -134,12 +135,12 @@ export interface EntityAttackEvent {
 
 export interface EntityStatsUpdatedEvent {
     targetEntityId: string;
-    damageToHp?: number; 
-    healToHp?: number;  
+    absorbedByArmor: number; // Убрали '?', т.к. поле, видимо, обязательное
+    damageToHp: number;      // Убрали '?', т.к. поле, видимо, обязательное
     currentHp: number;
-    absorbedByArmor?: number;
-    currentDefense?: number;
+    currentDefense: number;
     dead: boolean;
+    healToHp?: number; // Оставили '?' для случаев, когда это не хил
 }
 
 /**
