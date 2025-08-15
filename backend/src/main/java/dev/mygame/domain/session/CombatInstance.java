@@ -1,9 +1,7 @@
 package dev.mygame.domain.session;
 
+import dev.mygame.dto.websocket.event.*;
 import dev.mygame.dto.websocket.response.AbilityCooldownDto;
-import dev.mygame.dto.websocket.event.CombatNextTurnEvent;
-import dev.mygame.dto.websocket.event.CombatParticipantsJoinedEvent;
-import dev.mygame.dto.websocket.event.EntityTurnEndedEvent;
 import dev.mygame.enums.CombatOutcome;
 import dev.mygame.enums.EntityStateType;
 import dev.mygame.domain.event.CombatEndListener;
@@ -42,15 +40,6 @@ public class CombatInstance implements DeathListener {
     private List<CombatEndListener> endListeners = new ArrayList<>();
 
     private static final Logger log = LoggerFactory.getLogger(CombatInstance.class);
-
-//    public CombatInstance(String combatId, GameSession gameSession, List<Entity> initialParticipants, Entity initiator, AIService aiService) {
-//        this.combatId = combatId;
-//        this.gameSession = gameSession;
-//        this.aiService = aiService;
-//        initializeTeamsAndListeners(initialParticipants);
-//        initializeTurnOrder(initiator);
-//        startNextTurn();
-//    }
 
     public CombatInstance(String combatId, GameSession gameSession, List<Entity> initialParticipants, AIService aiService) {
         this.combatId = combatId;
@@ -242,7 +231,7 @@ public class CombatInstance implements DeathListener {
                 .currentAP(entity.getCurrentAP())
                 .abilityCooldowns(cooldowns)
                 .build();
-        gameSession.publishUpdate("combat_next_turn", nextTurnEvent);
+        gameSession.publishEvent(nextTurnEvent);
 
         if (entity instanceof Monster) {
             gameSession.getScheduler().schedule(() -> {
@@ -261,10 +250,13 @@ public class CombatInstance implements DeathListener {
      * Завершает текущий ход и запускает следующий.
      * Этот метод предполагает, что все проверки (чей ход и т.д.) уже пройдены.
      */
-
+    //TODO: добавить на фронтенд dto для окончания хода
     public void proceedToNextTurn() {
-        if (isFinished) return;
-        gameSession.publishUpdate("entity_turn_ended", getCurrentTurnEntityId());
+        if (isFinished)
+            return;
+        EntityTurnEndEvent combatEndTurnEvent =
+                new EntityTurnEndEvent(getCurrentTurnEntityId());
+        gameSession.publishEvent(getCurrentTurnEntityId());
         startNextTurn();
     }
 
@@ -297,7 +289,7 @@ public class CombatInstance implements DeathListener {
                 newParticipantIds,
                 new ArrayList<>(this.turnOrder)
         );
-        gameSession.publishUpdate("combat_participants_joined", event);
+        gameSession.publishEvent(event);
     }
 
     public void addListener(CombatEndListener combatEndListener) {
@@ -325,19 +317,11 @@ public class CombatInstance implements DeathListener {
         return null;
     }
 
-    public void printState(String contextMessage) {
-        System.out.println("\n--- COMBAT STATE (" + contextMessage + ") ---");
-        System.out.println("    Combat ID: " + this.combatId);
-        System.out.println("    Is Finished: " + this.isFinished);
-        System.out.println("    Current Turn Entity ID: " + this.getCurrentTurnEntityId());
-        System.out.println("    Turn Order (" + this.turnOrder.size() + " entities): " + this.turnOrder);
-        System.out.println("----------------------------------------\n");
-    }
-
     @Override
     public void onEntityDied(Entity e) {
         log.info("CombatInstance: Entity {} died.", e.getName());
-        gameSession.publishUpdate("entity_died", e.getId());
+        EntityDiedEvent entityDiedEvent = new EntityDiedEvent(e.getId());
+        gameSession.publishEvent(entityDiedEvent);
 
         long remainingTeamsCount = teams.values().stream()
                 .filter(t -> t.stream().anyMatch(Entity::isAlive))
@@ -346,7 +330,6 @@ public class CombatInstance implements DeathListener {
         if (remainingTeamsCount <= 1) {
             endCombatForAll();
         }
-        // Больше ничего не делаем! Не трогаем очередь и не вызываем proceedToNextTurn.
     }
 
     private void endCombatForAll() {

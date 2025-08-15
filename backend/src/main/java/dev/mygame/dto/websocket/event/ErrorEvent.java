@@ -10,5 +10,4 @@ import lombok.NoArgsConstructor;
 public class ErrorEvent {
     private String message;
     private String errorCode;
-
 }

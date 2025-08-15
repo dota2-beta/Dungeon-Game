@@ -17,16 +17,15 @@ public class MonsterSpawnerService {
     private final EntityFactory entityFactory;
 
     /**
-     * "Заселяет" карту монстрами для указанной игровой сессии.
-     * Итерируется по всем точкам спавна монстров, определенным на карте,
-     * и создает соответствующих монстров.
+     * Заселяет карту монстрами для указанной игровой сессии.
      * @param session Игровая сессия, которую нужно заселить.
      */
     public void spawnMonstersForMap(GameSession session) {
         GameMapHex map = session.getGameMap();
 
         if (map == null || map.getMonsterSpawnPoints() == null || map.getMonsterSpawnPoints().isEmpty()) {
-            log.warn("No monster spawn points found on the map for session {}. No monsters will be spawned.", session.getSessionID());
+            log.warn("No monster spawn points found on the map for session {}. No monsters will be spawned.",
+                    session.getSessionID());
             return;
         }
 
@@ -38,9 +37,16 @@ public class MonsterSpawnerService {
             if (monsterTemplateId != null) {
                 Monster monster = entityFactory.createMonster(monsterTemplateId, spawnInfo.getPosition());
                 session.addEntity(monster);
-                log.info("Spawned monster '{}' (template: {}) at {}", monster.getName(), monsterTemplateId, spawnInfo.getPosition());
+                log.info("Spawned monster '{}' (template: {}) at {}",
+                        monster.getName(),
+                        monsterTemplateId,
+                        spawnInfo.getPosition()
+                );
             } else {
-                log.warn("Could not resolve a monster template for symbol '{}' at position {}", spawnInfo.getSymbol(), spawnInfo.getPosition());
+                log.warn("Could not resolve a monster template for symbol '{}' at position {}",
+                        spawnInfo.getSymbol(),
+                        spawnInfo.getPosition()
+                );
             }
         }
     }

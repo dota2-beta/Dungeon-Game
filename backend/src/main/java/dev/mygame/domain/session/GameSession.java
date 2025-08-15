@@ -2,7 +2,7 @@ package dev.mygame.domain.session;
 
 //import dev.mygame.game.model.map.Map;
 import dev.mygame.config.StandartEntityGameSettings;
-import dev.mygame.config.WebSocketDestinations;
+import dev.mygame.domain.event.SessionEvent;
 import dev.mygame.domain.model.Entity;
 import dev.mygame.domain.model.GameObject;
 import dev.mygame.domain.model.Monster;
@@ -11,15 +11,16 @@ import dev.mygame.domain.model.map.*;
 import dev.mygame.dto.websocket.event.*;
 import dev.mygame.dto.websocket.request.PeaceProposalEvent;
 import dev.mygame.dto.websocket.request.PeaceProposalResultEvent;
-import dev.mygame.dto.websocket.response.AbilityCooldownDto;
-import dev.mygame.dto.websocket.response.EntityStateDto;
-import dev.mygame.dto.websocket.response.PlayerStateDto;
+import dev.mygame.dto.websocket.response.*;
 import dev.mygame.enums.AbilityUseResult;
 import dev.mygame.enums.EntityStateType;
 import dev.mygame.mapper.EntityMapper;
+import dev.mygame.mapper.GameSessionMapper;
+import dev.mygame.mapper.context.MappingContext;
 import dev.mygame.service.AIService;
 import dev.mygame.service.AbilityService;
 import dev.mygame.service.FactionService;
+import dev.mygame.service.GameEventNotifier;
 import dev.mygame.service.internal.DamageResult;
 import dev.mygame.enums.ActionType;
 import dev.mygame.enums.CombatOutcome;
@@ -30,7 +31,7 @@ import lombok.Builder;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,12 +39,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static dev.mygame.config.WebSocketDestinations.PRIVATE_EVENTS_QUEUE;
-
 @Data
 @Builder
 public class GameSession implements CombatEndListener {
     private String sessionID;
+    private final ApplicationEventPublisher eventPublisher;
+    private final GameEventNotifier notifier;
     private final StandartEntityGameSettings standartEntityGameSettings;
 
     @Builder.Default
@@ -54,11 +55,12 @@ public class GameSession implements CombatEndListener {
 
     @Builder.Default
     private Map<String, CombatInstance> activeCombats = new ConcurrentHashMap<>();
-    private SimpMessagingTemplate messagingTemplate;
 
     private final FactionService factionService;
     private final AbilityService abilityService;
     private final AIService aiService;
+
+    private final GameSessionMapper gameSessionMapper;
     private final EntityMapper entityMapper;
 
     // Ключ - ID приглашенного игрока, Значение - ID команды, в которую его приглашают.
@@ -85,13 +87,15 @@ public class GameSession implements CombatEndListener {
         entities.remove(entity.getId());
     }
 
-    public void publishUpdate(String updateType, Object payload) {
-        Map<String, Object> action = new HashMap<>();
-        action.put("actionType", updateType);
-        action.put("payload", payload);
+    public void publishEvent(Object payload) {
+        eventPublisher.publishEvent(new SessionEvent<>(this, this, payload));
+    }
 
-        String destination = WebSocketDestinations.GAME_UPDATES_TOPIC.replace("{sessionId}", this.sessionID);
-        this.messagingTemplate.convertAndSend(destination,action);
+    public void sendInitialStateToPlayer(String userId) {
+        MappingContext context = new MappingContext(userId);
+        GameSessionStateDto sessionState = gameSessionMapper.toGameSessionState(this, context);
+
+        notifier.notifyFullGameState(userId, this.getSessionID(), sessionState);
     }
 
     public void handleEntityAction(String entityId, EntityAction action) {
@@ -145,20 +149,6 @@ public class GameSession implements CombatEndListener {
 //                break;
 //            case USE_ITEM:
 //                entityUseItem(entityId, action.getItemId() , action.getPoint());
-//                break;
-
-//            case CAST_SPELL:
-//                Entity caster = entities.get(entityId);
-//
-//                Optional<AbilityInstance> abilityId = caster.getAbilities().stream()
-//                            .filter(a -> a.getTemplate().getTemplateId().equals(action.getAbilityId()))
-//                            .findFirst();
-//                if(abilityId.isEmpty()) {
-//                    log.warn("Player {} tried to cast an unknown ability: {}", caster.getName(), action.getAbilityId());
-//                    break;
-//                }
-//                AbilityInstance abilityInstance = abilityId.get();
-//                abilityService.useAbility(this, caster, abilityInstance, action.getTargetHex());
 //                break;
             case CAST_SPELL: {
                 entityUseAbility(entityId, action);
@@ -310,7 +300,7 @@ public class GameSession implements CombatEndListener {
                 .reachedTarget(true)
                 .build();
 
-        publishUpdate("entity_moved", movedEvent);
+        publishEvent( movedEvent);
         checkForCombatStart(entity);
         if (entity.getState() == EntityStateType.COMBAT) {
             //checkAndEndTurnIfNeeded(entity);
@@ -388,7 +378,7 @@ public class GameSession implements CombatEndListener {
                 attacker.getAttack(),
                 attacker.getCurrentAP()
         );
-        publishUpdate("entity_attack", attackEvent);
+        publishEvent(attackEvent);
 
         EntityStatsUpdatedEvent statsUpdateEvent = EntityStatsUpdatedEvent.builder()
                 .targetEntityId(target.getId())
@@ -398,7 +388,7 @@ public class GameSession implements CombatEndListener {
                 .currentDefense(target.getDefense())
                 .isDead(target.isDead())
                 .build();
-        publishUpdate("entity_stats_updated", statsUpdateEvent);
+        publishEvent(statsUpdateEvent);
     }
 
     public List<Entity> findTargetsInArea(Hex centerHex, int radius) {
@@ -578,7 +568,7 @@ public class GameSession implements CombatEndListener {
                 .abilityCooldowns(cooldowns)
                 .build();
 
-        publishUpdate("caster_state_updated", updateEvent);
+        publishEvent(updateEvent);
     }
 
     public Player getPlayerByEntityId(String entityId) {
@@ -615,7 +605,7 @@ public class GameSession implements CombatEndListener {
                 .combatants(combatantDtos)
                 .build();
 
-        publishUpdate("combat_started", combatStartedEvent);
+        publishEvent(combatStartedEvent);
     }
 
     /**
@@ -625,14 +615,7 @@ public class GameSession implements CombatEndListener {
      * @param errorCode Уникальный код ошибки для обработки на клиенте.
      */
     public void sendErrorMessageToPlayer(Player player, String message, String errorCode) {
-        ErrorEvent errorEvent = new ErrorEvent(message, errorCode);
-
-        // this.messagingTemplate должен быть доступен в этом классе
-        this.messagingTemplate.convertAndSendToUser(
-                player.getUserId(),
-                WebSocketDestinations.ERROR_QUEUE,
-                errorEvent
-        );
+        notifier.notifyError(player, message, errorCode);
     }
 
     @Override
@@ -644,7 +627,7 @@ public class GameSession implements CombatEndListener {
                 .winningTeamId(winningTeamId)
                 .build();
 
-        publishUpdate("combat_ended", event);
+        publishEvent(event);
 
         for (Entity participant : allParticipants) {
             if (participant.isAlive()) {
@@ -685,16 +668,7 @@ public class GameSession implements CombatEndListener {
         this.pendingInvites.put(targetUser.getUserId(), inviterUser.getTeamId());
 
         TeamInviteEvent event = new TeamInviteEvent(inviterUser.getId(), inviterUser.getName(), inviterUser.getTeamId());
-
-        Map<String, Object> wrappedMessage = new HashMap<>();
-        wrappedMessage.put("actionType", "team_invite");
-        wrappedMessage.put("payload", event);
-
-        messagingTemplate.convertAndSendToUser(
-                targetUser.getUserId(),
-                PRIVATE_EVENTS_QUEUE,
-                wrappedMessage
-        );
+        notifier.notifyPlayer(targetUser, "team_invite", event);
     }
 
     public void publishTeamUpdated(String teamId) {
@@ -704,7 +678,7 @@ public class GameSession implements CombatEndListener {
                 .collect(Collectors.toSet());
 
         TeamUpdatedEvent event = new TeamUpdatedEvent(teamId, membersIds);
-        publishUpdate("team_updated", event);
+        publishEvent(event);
     }
 
     public void handleRespondPlayerToTeamInvite(Player invitedUser, boolean accepted) {
@@ -829,24 +803,7 @@ public class GameSession implements CombatEndListener {
                 .filter(e -> e instanceof Player)
                 .map(e -> (Player) e)
                 .toList();
-
-        Map<String, Object> updateMessage = new HashMap<>();
-        updateMessage.put("actionType", updateType);
-        updateMessage.put("payload", payload);
-
-        for (Player player : playersInCombat) {
-            messagingTemplate.convertAndSendToUser(
-                    player.getUserId(),
-                    WebSocketDestinations.PRIVATE_EVENTS_QUEUE,
-                    updateMessage
-            );
-        }
-    }
-
-    private List<Entity> getTeammatesByEntityId(Entity entity) {
-        return this.entities.values().stream()
-                .filter(e -> e.getTeamId().equals(entity.getTeamId()))
-                .toList();
+        notifier.notifyPlayers(playersInCombat, updateType, payload);
     }
 
     public void handleLeaveFromTeam(String userId) {
@@ -861,5 +818,39 @@ public class GameSession implements CombatEndListener {
 
         publishTeamUpdated(oldTeamId);
         publishTeamUpdated(playerWhoLeaves.getTeamId());
+    }
+
+    /**
+     * Обрабатывает отключение игрока от сессии.
+     * @param websocketSessionId ID отключенной WebSocket-сессии.
+     */
+    public void handlePlayerDisconnect(String websocketSessionId) {
+        Player disconnectedPlayer = getPlayerByWebsocketSessionId(websocketSessionId);
+        if (disconnectedPlayer == null) {
+            return;
+        }
+
+        this.removeEntity(disconnectedPlayer);
+
+        PlayerLeftEvent event = new PlayerLeftEvent(disconnectedPlayer.getId());
+        publishEvent(event);
+
+        if (!disconnectedPlayer.getTeamId().equals(disconnectedPlayer.getId())) {
+            publishTeamUpdated(disconnectedPlayer.getTeamId());
+        }
+
+        if (!hasHumanPlayers()) {
+            log.info("Last player disconnected from session {}. Ending session.", this.sessionID);
+            notifyGameSessionEndListeners();
+        }
+    }
+
+    /**
+     * Проверяет, есть ли в сессии хотя бы один активный игрок.
+     * @return true, если есть хотя бы один объект Player.
+     */
+    private boolean hasHumanPlayers() {
+        return this.entities.values().stream()
+                .anyMatch(entity -> entity instanceof Player);
     }
 }

@@ -10,9 +10,8 @@ import java.util.List;
 
 @Component
 public class GameMapMapper {
-    public MapStateDto toGameMapState(GameMapHex gameMap, int radius) {
+    public MapStateDto toGameMapState(GameMapHex gameMap) {
         MapStateDto mapClientState = new MapStateDto();
-        mapClientState.setRadius(radius);
         List<TileDto> tiles = gameMap.getTileEntries().stream()
                         .map(entry -> new TileDto(
                                 entry.getKey().getQ(),

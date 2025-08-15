@@ -13,14 +13,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * Класс для автоматической генерации карты.
+ *
+ * @deprecated Класс находится в разработке и не готов к использованию.
+ *             Функционал не реализован полностью.
+ */
 @Component
 @RequiredArgsConstructor
 public class MapGenerator {
     private final Random random = new Random();
-    private final MapLoader mapLoader;
 
     public GameMapHex generateHexBattleArena(MapGenerationProperties props) {
-        //GameMapHex map = new GameMapHex();
         GameMapHex map = GameMapHex.builder().build();
         int radius = props.getBattleArenaRadius();
 

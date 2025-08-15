@@ -8,7 +8,6 @@ import java.util.List;
 
 @Data
 public class MapStateDto {
-    public int radius;
     List<TileDto> tiles;
     List<Hex> spawnPoints;
 }

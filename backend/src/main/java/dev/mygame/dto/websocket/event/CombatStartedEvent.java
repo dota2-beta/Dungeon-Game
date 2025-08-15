@@ -1,5 +1,6 @@
 package dev.mygame.dto.websocket.event;
 
+import dev.mygame.dto.websocket.response.CombatTeamDto;
 import dev.mygame.dto.websocket.response.EntityStateDto;
 import lombok.Builder;
 import lombok.Data;

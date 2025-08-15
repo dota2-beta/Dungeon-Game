@@ -7,6 +7,7 @@ import dev.mygame.data.MapLoader;
 import dev.mygame.domain.factory.EntityFactory;
 import dev.mygame.domain.model.map.GameMapHex;
 import dev.mygame.domain.model.map.Hex;
+import dev.mygame.dto.websocket.event.PlayerJoinedEvent;
 import dev.mygame.dto.websocket.request.JoinRequest;
 import dev.mygame.dto.websocket.request.PlayerAction;
 import dev.mygame.domain.model.GameObject;
@@ -14,6 +15,8 @@ import dev.mygame.domain.model.Player;
 import dev.mygame.domain.event.GameSessionEndListener;
 import dev.mygame.data.GameDataLoader;
 import dev.mygame.domain.session.GameSession;
+import dev.mygame.dto.websocket.response.GameSessionStateDto;
+import dev.mygame.dto.websocket.response.PlayerStateDto;
 import dev.mygame.mapper.EntityActionMapper;
 import dev.mygame.mapper.EntityMapper;
 import dev.mygame.mapper.GameSessionMapper;
@@ -23,6 +26,7 @@ import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
@@ -36,7 +40,8 @@ import java.util.concurrent.ScheduledExecutorService;
 public class GameSessionManager implements GameSessionEndListener {
     public Map<String, GameSession> activeSessions;
 
-    private final SimpMessagingTemplate messagingTemplate;
+    private final GameEventNotifier notifier;
+    private final ApplicationEventPublisher eventPublisher;
     private final StandartEntityGameSettings standartEntityGameSettings;
     private final MapGenerationProperties props;
     private final MapGenerator mapGenerator;
@@ -57,8 +62,25 @@ public class GameSessionManager implements GameSessionEndListener {
     private final ScheduledExecutorService scheduler;
 
     @Autowired
-    public GameSessionManager(SimpMessagingTemplate messagingTemplate, StandartEntityGameSettings standartEntityGameSettings, MapGenerationProperties props,
-                              MapGenerator mapGenerator, MapLoader mapLoader, GameDataLoader gameDataLoader, GameSessionMapper gameSessionMapper, EntityMapper entityMapper, EntityActionMapper entityActionMapper, FactionService factionService, AbilityService abilityService, MonsterSpawnerService spawnerService, AIService aiService, EntityFactory entityFactory, ScheduledExecutorService scheduler) {
+    public GameSessionManager(
+            SimpMessagingTemplate messagingTemplate, GameEventNotifier gameEventNotifier, ApplicationEventPublisher eventPublisher,
+            StandartEntityGameSettings standartEntityGameSettings,
+            MapGenerationProperties props,
+            MapGenerator mapGenerator,
+            MapLoader mapLoader,
+            GameDataLoader gameDataLoader,
+            GameSessionMapper gameSessionMapper,
+            EntityMapper entityMapper,
+            EntityActionMapper entityActionMapper,
+            FactionService factionService,
+            AbilityService abilityService,
+            MonsterSpawnerService spawnerService,
+            AIService aiService,
+            EntityFactory entityFactory,
+            ScheduledExecutorService scheduler
+    ) {
+        this.notifier = gameEventNotifier;
+        this.eventPublisher = eventPublisher;
         this.props = props;
         this.mapLoader = mapLoader;
         this.gameSessionMapper = gameSessionMapper;
@@ -71,7 +93,6 @@ public class GameSessionManager implements GameSessionEndListener {
         this.entityFactory = entityFactory;
         this.scheduler = scheduler;
         this.activeSessions = new ConcurrentHashMap<>();
-        this.messagingTemplate = messagingTemplate;
         this.standartEntityGameSettings = standartEntityGameSettings;
         this.mapGenerator = mapGenerator;
         this.gameDataLoader = gameDataLoader;
@@ -79,13 +100,11 @@ public class GameSessionManager implements GameSessionEndListener {
 
     public String createSession() {
         String sessionId = UUID.randomUUID().toString();
-        //GameMapHex gameMapHex = mapGenerator.generateHexBattleArena(props);
         GameMapHex gameMapHex;
         try {
             gameMapHex = mapLoader.loadMapFromFile("gamedata/maps/dungeon_level_1.txt");
         } catch (Exception e) {
             log.error("Failed to load map file!", e);
-            //gameMapHex = mapGenerator.generateHexBattleArena(props);
             throw new RuntimeException("Could not create game session, map failed to load.", e);
         }
 
@@ -96,22 +115,19 @@ public class GameSessionManager implements GameSessionEndListener {
                 .scheduler(scheduler)
                 .gameMap(gameMapHex)
                 .standartEntityGameSettings(this.standartEntityGameSettings)
-                .messagingTemplate(this.messagingTemplate)
+                .notifier(notifier)
                 .gameObjects(initialGameObjects)
                 .factionService(factionService)
                 .entityMapper(entityMapper)
                 .abilityService(abilityService)
                 .aiService(aiService)
+                .eventPublisher(eventPublisher)
+                .gameSessionMapper(gameSessionMapper)
                 .build();
         gameSession.addGameSessionEndListener(this);
         spawnerService.spawnMonstersForMap(gameSession);
-        // TODO: Добавить игроков (Player сущностей) в GameSession, если они еще не добавлены в initialEntities
-        // gameSession.addPlayer(userId, ...); // Метод в GameSession
 
         activeSessions.put(sessionId, gameSession);
-
-        // TODO: Возможно, выполнить дополнительные действия после создания сессии
-
         return sessionId;
     }
 
@@ -134,12 +150,18 @@ public class GameSessionManager implements GameSessionEndListener {
         String playerClassId = request.getTemplateId();
         Hex startPosition = gameMap.getAvailablePlayerSpawnPoint();
 
-        Player player = entityFactory.createPlayer(playerClassId, userId,request.getName(), websocketSessionId, startPosition);
+        Player player = entityFactory.createPlayer(playerClassId,
+                userId,request.getName(),
+                websocketSessionId,
+                startPosition
+        );
 
         gameSession.addEntity(player);
 
-        sendInitialStateToPlayer(gameSession, userId);
-        gameSession.publishUpdate("player_joined", entityMapper.toPlayerState(player));
+        gameSession.sendInitialStateToPlayer(userId);
+
+        PlayerJoinedEvent joinedEvent = new PlayerJoinedEvent(entityMapper.toPlayerState(player));
+        gameSession.publishEvent(joinedEvent);
 
         gameSession.checkForCombatStart(player);
     }
@@ -157,22 +179,15 @@ public class GameSessionManager implements GameSessionEndListener {
         gameSession.handleEntityAction(actingPlayer.getId(), entityActionMapper.toEntityAction(playerAction));
     }
 
-    public void sendInitialStateToPlayer(GameSession gameSession, String userId) {
-        MappingContext context = new MappingContext(
-                userId,
-                props.getBattleArenaRadius()
-        );
-
-        messagingTemplate.convertAndSendToUser(
-                userId,
-                WebSocketDestinations.SESSION_STATE_QUEUE.replace("{sessionId}", gameSession.getSessionID()),
-                gameSessionMapper.toGameSessionState(gameSession, context)
-        );
-    }
-
-    public void inviteToTeam(String sessionId, String inviterUserId, String invitedUserId) {
-        activeSessions.get(sessionId);
-    }
+//    public void sendInitialStateToPlayer(GameSession gameSession, String userId) {
+//        MappingContext context = new MappingContext(
+//                userId,
+//                props.getBattleArenaRadius()
+//        );
+//        GameSessionStateDto sessionState = gameSessionMapper.toGameSessionState(gameSession, context);
+//
+//        notifier.notifyFullGameState(userId, gameSession.getSessionID(), sessionState);
+//    }
 
     @Override
     public void onGameSessionEnd(GameSession session) {
@@ -236,6 +251,20 @@ public class GameSessionManager implements GameSessionEndListener {
             return;
         }
 
-        sendInitialStateToPlayer(gameSession, userId);
+        gameSession.sendInitialStateToPlayer(userId);
+    }
+
+    public void handlePlayerDisconnect(String websocketSessionId) {
+        Optional<GameSession> sessionOptional = activeSessions.values().stream()
+                .filter(session -> session.getPlayerByWebsocketSessionId(websocketSessionId) != null)
+                .findFirst();
+
+        if (sessionOptional.isPresent()) {
+            GameSession session = sessionOptional.get();
+            log.info("Player with websocket session {} disconnected from game session {}", websocketSessionId, session.getSessionID());
+            session.handlePlayerDisconnect(websocketSessionId);
+        } else {
+            log.warn("No active game session found for disconnected websocket session: {}", websocketSessionId);
+        }
     }
 }

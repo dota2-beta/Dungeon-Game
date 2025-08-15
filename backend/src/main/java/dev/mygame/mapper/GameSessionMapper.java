@@ -30,7 +30,7 @@ public class GameSessionMapper {
         gameSessionStateDto.setYourPlayerId(yourPlayerId);
 
         if(session.getGameMap() != null)
-            gameSessionStateDto.setMapState(gameMapMapper.toGameMapState(session.getGameMap(), mappingContext.getMapRadius()));
+            gameSessionStateDto.setMapState(gameMapMapper.toGameMapState(session.getGameMap()));
 
         List<EntityStateDto> clientStates = session.getEntities().values().stream()
                 .map(entityMapper::toState)

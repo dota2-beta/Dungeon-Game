@@ -34,7 +34,7 @@ public class HealEffect implements AbilityEffect{
                     .isDead(false)
                     .build();
 
-            gameSession.publishUpdate("entity_stats_updated", event);
+            gameSession.publishEvent(event);
         }
     }
 

@@ -72,7 +72,7 @@ public class AbilityService {
                 .abilityTemplateId(abilityTemplate.getTemplateId())
                 .targetHex(targetHex)
                 .build();
-        gameSession.publishUpdate("ability_casted", castedEvent);
+        gameSession.publishEvent(castedEvent);
 
         List<Entity> affectedTargets = gameSession.findTargetsInArea(targetHex, abilityTemplate.getAreaOfEffectRadius());
 

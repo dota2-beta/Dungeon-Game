@@ -29,7 +29,7 @@ public class DamageEffect implements AbilityEffect{
                     .currentDefense(entity.getDefense())
                     .currentHp(entity.getCurrentHp())
                     .build();
-            gameSession.publishUpdate("entity_stats_updated", event);
+            gameSession.publishEvent(event);
         }
     }
 
