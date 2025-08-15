@@ -63,7 +63,6 @@ export interface AbilityStateDto {
  * Описывает состояние гексагональной карты.
  */
 export interface MapStateDto {
-    radius: number;
     tiles: TileDto[];
     spawnPoints?: Hex[];
 }
@@ -309,4 +308,24 @@ export interface AbilityTemplateDto {
     range: number;
     areaOfEffectRadius: number;
     // Можно добавить и другие поля, если они понадобятся в UI, например, costAp
+}
+
+export interface PlayerLeftEvent {
+    entityId: string;
+}
+
+/**
+ * Событие: Ход сущности завершен.
+ * Payload - это ID сущности, которая закончила ход.
+ */
+export interface EntityTurnEndedEvent {
+    currentTurnEntityId: string;
+}
+
+/**
+ * Событие: Сущность умерла.
+ * Payload - это ID умершей сущности.
+ */
+export interface EntityDiedEvent {
+    entityId: string;
 }

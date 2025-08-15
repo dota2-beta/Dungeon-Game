@@ -21,6 +21,8 @@ import {
     type TeamInviteEvent,
     type TeamUpdatedEvent,
     type AbilityTemplateDto,
+    type EntityTurnEndedEvent,
+    type EntityDiedEvent,
 } from '../types/dto';
 
 export interface CombatState {
@@ -56,8 +58,7 @@ export interface NotificationState {
 const initialState: ExtendedGameSessionState = {
     sessionId: '',
     yourPlayerId: '',
-    mapState: { 
-        radius: 0,
+    mapState: {
         tiles: [],
         spawnPoints: []
     },
@@ -111,7 +112,9 @@ type GameAction =
     | { type: 'OPEN_CONTEXT_MENU'; payload: { x: number; y: number; targetPlayer: PlayerStateDto } }
     | { type: 'CLOSE_CONTEXT_MENU' }
     | { type: 'SET_ABILITY_TEMPLATES'; payload: AbilityTemplateDto[] }
-    | { type: 'SET_HOVERED_ENTITY'; payload: string | null };
+    | { type: 'SET_HOVERED_ENTITY'; payload: string | null }
+    | { type: 'ENTITY_TURN_ENDED'; payload: EntityTurnEndedEvent }
+    | { type: 'ENTITY_DIED'; payload: EntityDiedEvent };
 
 const updateEntityInState = <T extends EntityStateDto>(
     entities: T[], 
@@ -465,6 +468,23 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
             };
         case 'SET_HOVERED_ENTITY':
             return { ...state, hoveredEntityId: action.payload };
+        case 'REMOVE_ENTITY':
+            return { ...state, entities: state.entities.filter(e => e.id !== action.payload.entityId) };
+
+        case 'ENTITY_TURN_ENDED':
+            console.log(`Turn ended for entity: ${action.payload.currentTurnEntityId}`);
+            return state;
+    
+        case 'ENTITY_DIED':
+            return {
+                ...state,
+                entities: state.entities.map(entity => 
+                    entity.id === action.payload.entityId 
+                        ? { ...entity, dead: true, currentHp: 0 } 
+                        : entity
+                ),
+            };
+
         default:
             return state;
     }

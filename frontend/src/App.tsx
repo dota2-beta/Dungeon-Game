@@ -23,7 +23,9 @@ import type {
     TeamInviteEvent,
     PlayerClassTemplateDto,
     JoinRequest,
-    AbilityTemplateDto
+    AbilityTemplateDto,
+    EntityTurnEndedEvent,
+    EntityDiedEvent
 } from './types/dto';
 import GameCanvas from './components/GameCanvas';
 import PlayerHUD from './components/PlayerHUD';
@@ -216,8 +218,11 @@ const Game: FC = () => {
                     case 'entity_stats_updated':
                         dispatch({ type: 'ENTITY_TOOK_DAMAGE', payload: update.payload as EntityStatsUpdatedEvent });
                         break;
+                    // case 'player_joined':
+                    //     dispatch({ type: 'ADD_NEW_ENTITY', payload: update.payload as PlayerStateDto });
+                    //     break;
                     case 'player_joined':
-                        dispatch({ type: 'ADD_NEW_ENTITY', payload: update.payload as PlayerStateDto });
+                        dispatch({ type: 'ADD_NEW_ENTITY', payload: update.payload.player });
                         break;
                     case 'player_left':
                         dispatch({ type: 'REMOVE_ENTITY', payload: update.payload as PlayerLeftEvent });
@@ -246,6 +251,15 @@ const Game: FC = () => {
                     case 'team_updated':
                         dispatch({ type: 'TEAM_UPDATED', payload: update.payload as TeamUpdatedEvent });
                         break;
+                    case 'player_left':
+                        dispatch({ type: 'REMOVE_ENTITY', payload: update.payload as PlayerLeftEvent });
+                        break;
+                    case 'entity_turn_ended':
+                    dispatch({ type: 'ENTITY_TURN_ENDED', payload: update.payload as EntityTurnEndedEvent });
+                        break;
+                    case 'entity_died':
+                        dispatch({ type: 'ENTITY_DIED', payload: update.payload as EntityDiedEvent });
+                        break;
                 }
             }
         );
@@ -262,7 +276,8 @@ const Game: FC = () => {
     useEffect(() => {
         if (sessionId && isConnectedToServer && nickname && selectedClassId) {
             console.log(`Sending join request for session ${sessionId} as ${nickname} (${selectedClassId})`);
-            const payload: JoinRequest = {
+            
+            const payload = {
                 sessionId: sessionId,
                 name: nickname,
                 templateId: selectedClassId,
