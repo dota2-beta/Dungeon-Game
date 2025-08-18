@@ -63,7 +63,6 @@ const Game: FC = () => {
     useEffect(() => {
         const fetchGameData = async () => {
             try {
-                // Загружаем классы
                 const classResponse = await fetch('http://localhost:8080/api/game-data/player-classes');
                 if (!classResponse.ok) throw new Error('Failed to fetch classes');
                 const classData: PlayerClassTemplateDto[] = await classResponse.json();
@@ -72,15 +71,12 @@ const Game: FC = () => {
                     setSelectedClassId(classData[0].templateId);
                 }
 
-                // Загружаем способности
                 const abilityResponse = await fetch('http://localhost:8080/api/game-data/abilities');
                 if (!abilityResponse.ok) throw new Error('Failed to fetch abilities');
                 const abilityData: AbilityTemplateDto[] = await abilityResponse.json();
-                console.log('%c[DEBUG] App.tsx: Fetched abilities from server. Dispatching SET_ABILITY_TEMPLATES.', 'color: green; font-weight: bold;', abilityData);
                 dispatch({ type: 'SET_ABILITY_TEMPLATES', payload: abilityData });
 
             } catch (error) {
-                console.error("Could not load game data:", error);
                 setErrorMessage("Could not load game data from server. Is the backend running?");
             }
         };
@@ -91,12 +87,10 @@ const Game: FC = () => {
         const onStompConnect = (frame: IFrame) => {
             setIsConnectedToServer(true);
             setErrorMessage('');
-            console.log('STOMP: Connected. Setting up general subscriptions...');
 
             subscribe<{ status: string; sessionId?: string; message?: string }>(
                 '/user/queue/create-session-response',
                 (response) => {
-                    console.log('Received create-session response:', response);
                     if (response.status === 'success' && response.sessionId) {
                         setSessionId(response.sessionId);
                     } else {
@@ -125,11 +119,8 @@ const Game: FC = () => {
             );
 
             subscribe<GameUpdatePayload<any>>(
-                '/user/queue/events', // Адрес из WebSocketDestinations.PRIVATE_EVENTS_QUEUE
+                '/user/queue/events',
                 (update) => {
-                    console.log(`%c[PRIVATE EVENT] Received: ${update.actionType}`, 'color: #9b59b6; font-weight: bold;', update.payload);
-                    
-                    // Обрабатываем события так же, как и публичные
                     switch (update.actionType) {
                         case 'peace_proposal':
                             dispatch({ type: 'PEACE_PROPOSAL_RECEIVED', payload: update.payload as PeaceProposalEvent });
@@ -157,7 +148,6 @@ const Game: FC = () => {
                             dispatch({ type: 'TEAM_INVITE_RECEIVED', payload: update.payload as TeamInviteEvent });
                             break;
                         }
-                        // Здесь можно будет обрабатывать и другие личные события в будущем
                     }
                 }
             );
@@ -195,13 +185,11 @@ const Game: FC = () => {
             (update) => {
                 console.log(`%c[CLIENT] Received event: ${update.actionType}`, 'color: purple; font-weight: bold;', update.payload);
 
-                // Если это событие MOVE, логируем дополнительную информацию
                 if (update.actionType === 'entity_moved') {
                     const payload = update.payload as EntityMovedEvent;
                     console.log(`%c    Moved entity ${payload.entityId} to new position: (${payload.newPosition.q},${payload.newPosition.r})`, 'color: #2c3e50;');
                 }
 
-                // Если это событие COMBAT_STARTED, просто логируем факт
                 if (update.actionType === 'combat_started') {
                     const payload = update.payload as CombatStartedEvent;
                     console.log(`%c    Combat has started! ID: ${payload.combatId}. Initial turn order:`, 'color: red; font-weight: bold;', payload.initialTurnOrder);
@@ -218,9 +206,6 @@ const Game: FC = () => {
                     case 'entity_stats_updated':
                         dispatch({ type: 'ENTITY_TOOK_DAMAGE', payload: update.payload as EntityStatsUpdatedEvent });
                         break;
-                    // case 'player_joined':
-                    //     dispatch({ type: 'ADD_NEW_ENTITY', payload: update.payload as PlayerStateDto });
-                    //     break;
                     case 'player_joined':
                         dispatch({ type: 'ADD_NEW_ENTITY', payload: update.payload.player });
                         break;
@@ -239,8 +224,6 @@ const Game: FC = () => {
                     case 'combat_ended':
                         dispatch({ type: 'COMBAT_ENDED', payload: update.payload as CombatEndedEvent });
                         break;
-
-                    // --- ДОБАВЛЕНО: Обработка новых событий ---
                     case 'caster_state_updated':
                         dispatch({ type: 'CASTER_STATE_UPDATED', payload: update.payload as CasterStateUpdatedEvent });
                         break;
@@ -288,18 +271,14 @@ const Game: FC = () => {
 
     useEffect(() => {
         const handleVisibilityChange = () => {
-            // Проверяем, стала ли вкладка видимой
             if (document.visibilityState === 'visible') {
                 console.log('Tab became visible. Requesting state sync.');
                 
-                // Если мы подключены и находимся в сессии, отправляем запрос
                 if (isConnectedToServer && sessionId) {
                     publish(`/app/session/${sessionId}/request-state`, {});
                 }
             }
         };
-
-        // Добавляем слушатель события
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -322,7 +301,6 @@ const Game: FC = () => {
     const handleJoinGame = () => {
         if (isConnectedToServer && joinSessionId && !isLobbyFormInvalid) {
             setErrorMessage('');
-            // Этот вызов просто установит sessionId, что активирует useEffect ниже
             setSessionId(joinSessionId);
         } else {
             setErrorMessage('Not connected, Session ID is empty, or character data is missing.');
@@ -382,8 +360,6 @@ const Game: FC = () => {
                 {!sessionId ? (
                     <div id="lobby">
                         <h2>Lobby</h2>
-                        
-                        {/* --- БЛОК СОЗДАНИЯ ПЕРСОНАЖА --- */}
                         <div style={{ marginBottom: '25px', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
                             <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Your Character</h3>
                             <div style={{ marginBottom: '15px' }}>
@@ -422,7 +398,6 @@ const Game: FC = () => {
                             </div>
                         </div>
 
-                        {/* --- БЛОКИ СОЗДАНИЯ И ПРИСОЕДИНЕНИЯ К ИГРЕ --- */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                             <div style={{ padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>
                                 <h3>Create a New Game</h3>

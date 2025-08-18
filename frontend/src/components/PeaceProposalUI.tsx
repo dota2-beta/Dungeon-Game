@@ -7,7 +7,6 @@ const PeaceProposalUI: React.FC = () => {
     const { gameState } = useGame();
     const { activePeaceProposal, yourPlayerId, sessionId, activeCombat } = gameState;
 
-    // UI виден только если есть активное голосование в активном бою
     if (!activePeaceProposal || !activeCombat) {
         return null;
     }
@@ -53,8 +52,8 @@ const PeaceProposalUI: React.FC = () => {
                 margin: 0,
                 marginBottom: '20px',
                 fontSize: '18px',
-                whiteSpace: 'pre-wrap', // Оставляем для переносов \n
-                wordBreak: 'break-word', // Добавляем принудительный перенос слов
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
             }}>
                 {isMyProposal 
                     ? "You have proposed peace. Waiting for others..." 

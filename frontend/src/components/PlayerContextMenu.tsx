@@ -8,7 +8,6 @@ const PlayerContextMenu: React.FC = () => {
     const { contextMenu, sessionId } = gameState;
     const menuRef = useRef<HTMLDivElement>(null);
 
-    // Эффект для закрытия меню при клике вне его области
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -35,8 +34,6 @@ const PlayerContextMenu: React.FC = () => {
         console.log(`Sending team invite to player ${contextMenu.targetPlayer.name}`);
         const payload: InviteToTeamRequest = { targetPlayerId: contextMenu.targetPlayer.id };
         publish(`/app/session/${sessionId}/team/invite`, payload);
-
-        // Показываем уведомление об отправке
         dispatch({ 
             type: 'SHOW_NOTIFICATION', 
             payload: { message: `Invite sent to ${contextMenu.targetPlayer.name}!`, type: 'info' } 
@@ -53,7 +50,7 @@ const PlayerContextMenu: React.FC = () => {
         <div
             ref={menuRef}
             style={{
-                position: 'fixed', // 'fixed' чтобы позиционироваться относительно окна браузера
+                position: 'fixed',
                 top: `${contextMenu.y}px`,
                 left: `${contextMenu.x}px`,
                 zIndex: 200,
@@ -85,7 +82,6 @@ const PlayerContextMenu: React.FC = () => {
                 >
                     Invite to Team
                 </li>
-                {/* Здесь можно будет добавить другие пункты меню в будущем */}
             </ul>
         </div>
     );

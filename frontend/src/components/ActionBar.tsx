@@ -14,8 +14,6 @@ const ActionBar: React.FC = () => {
         return null;
     }
 
-    console.log("PLAYER STATE FOR ACTION BAR:", player); 
-
     const isMyTurn = activeCombat.currentTurnEntityId === yourPlayerId;
 
     const handleEndTurn = () => {

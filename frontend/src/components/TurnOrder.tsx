@@ -10,14 +10,11 @@ const TurnOrder: React.FC = () => {
         return null;
     }
 
-    // --- НАДЕЖНАЯ ЛОГИКА ОПРЕДЕЛЕНИЯ ---
-
     const me = entities.find(e => e.id === yourPlayerId);
     const currentTurnEntity = entities.find(e => e.id === activeCombat.currentTurnEntityId);
 
     const isMyTurn = activeCombat.currentTurnEntityId === yourPlayerId;
     
-    // Союзник - это тот, у кого ЕСТЬ teamId, и он СОВПАДАЕТ с моим.
     const isAllyTurn = !isMyTurn && me?.teamId != null && me.teamId === currentTurnEntity?.teamId;
 
     let turnText: string;
@@ -34,7 +31,6 @@ const TurnOrder: React.FC = () => {
         turnBackgroundColor = 'rgba(200, 0, 0, 0.8)';
     }
     
-    // --- КОНЕЦ ЛОГИКИ ---
 
     const turnOrderEntities: (EntityStateDto | undefined)[] = activeCombat.turnOrder.map(entityId =>
         entities.find(e => e.id === entityId)
@@ -75,8 +71,6 @@ const TurnOrder: React.FC = () => {
                     if (!entity || entity.dead) return null;
 
                     const isCurrent = entity.id === activeCombat.currentTurnEntityId;
-                    
-                    // Юнит в очереди - союзник, если это я, ИЛИ у нас совпадают teamId
                     const isAllyPortrait = entity.id === yourPlayerId || 
                                            (me?.teamId != null && me.teamId === entity.teamId);
 

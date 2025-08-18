@@ -41,12 +41,9 @@ const AbilitySlot: React.FC<{ ability: AbilityStateDto }> = ({ ability }) => {
     const isSelected = gameState.selectedAbility?.abilityTemplateId === ability.abilityTemplateId;
     const handleClick = () => {
         if (isDisabled) return;
-        console.log(`%c[AbilityBar] Dispatching SELECT_ABILITY for: ${ability.abilityTemplateId}`, 'color: #0984e3; font-weight: bold;');
-        
         dispatch({ type: 'SELECT_ABILITY', payload: ability });
     };
     const displayName = template?.name || ability.abilityTemplateId;
-    const displayDescription = template ? `${template.name}\n\n${template.description}` : 'No description available';
     const displayInitial = template ? template.name.charAt(0).toUpperCase() : '?';
 
     return (

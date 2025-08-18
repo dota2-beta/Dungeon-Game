@@ -52,7 +52,7 @@ export type NotificationType = 'success' | 'error' | 'info';
 export interface NotificationState {
     message: string;
     type: NotificationType;
-    timestamp: number; // Для уникальности
+    timestamp: number; 
 }
 
 const initialState: ExtendedGameSessionState = {
@@ -183,13 +183,10 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                     if (healToHp && healToHp > 0) {
                         return { ...entity, currentHp: currentHp };
                     }
-    
-                    // КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ:
-                    // Мы берем `currentDefense` из payload'а и записываем его в поле `defense` нашего объекта.
                     return {
                         ...entity,
                         currentHp: currentHp,
-                        defense: currentDefense, // <-- ИСПРАВЛЕНО ЗДЕСЬ
+                        defense: currentDefense,
                         dead: dead,
                     };
                 });
@@ -301,26 +298,32 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                 },
                 selectedAbility: null,
             };
-
         case 'COMBAT_ENDED': {
+            const { outcome, winningTeamId } = action.payload;
+            let finalMessage: string;
+            
+            if (outcome === CombatOutcome.END_BY_AGREEMENT) {
+                finalMessage = 'Peace Agreed';
+            } 
+            else if (outcome === CombatOutcome.VICTORY) {
                 const player = state.entities.find(e => e.id === state.yourPlayerId);
-                if (!player) return state;
-                const amIVictorious = action.payload.winningTeamId != null &&
-                                      (player.teamId === action.payload.winningTeamId || player.id === action.payload.winningTeamId);
-            
-                const message = amIVictorious ? 'VICTORY!' : 'DEFEAT';
-                const outcome = amIVictorious ? CombatOutcome.VICTORY : CombatOutcome.DEFEAT;
-            
-                const entitiesAfterCombat = state.entities.map(e => e.dead ? e : { ...e, state: EntityStateType.EXPLORING });
-
-                return {
-                    ...state,
-                    entities: entitiesAfterCombat,
-                    activeCombat: null,
-                    combatOutcomeInfo: { message, outcome },
-                    activePeaceProposal: null,
-                };
+                const isWinner = player && winningTeamId && (player.teamId === winningTeamId || player.id === winningTeamId);
+                finalMessage = isWinner ? 'VICTORY!' : 'DEFEAT';
+            } 
+            else {
+                finalMessage = 'DEFEAT';
             }
+            
+            const entitiesAfterCombat = state.entities.map(e => e.dead ? e : { ...e, state: EntityStateType.EXPLORING });
+
+            return {
+                ...state,
+                entities: entitiesAfterCombat,
+                activeCombat: null,
+                combatOutcomeInfo: { message: finalMessage, outcome: outcome },
+                activePeaceProposal: null,
+            };
+        }  
         
         case 'CLEAR_COMBAT_OUTCOME':
             return {
@@ -415,13 +418,6 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
             const { teamId, memberIds } = action.payload;
             const memberIdSet = new Set(memberIds);
 
-            // --- DEBUG LOGGING ---
-            console.group(`[DEBUG] Reducer: TEAM_UPDATED for teamId: ${teamId}`);
-            const playerBefore = state.entities.find(e => e.id === state.yourPlayerId);
-            console.log(`Payload memberIds:`, memberIds);
-            console.log(`Your player's teamId BEFORE update:`, playerBefore?.teamId);
-            // --- END DEBUG ---
-
             const updatedEntities = state.entities.map(entity => {
                 if (memberIdSet.has(entity.id)) {
                     return { ...entity, teamId: teamId };
@@ -431,12 +427,6 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                 }
                 return entity;
             });
-
-            // --- DEBUG LOGGING ---
-            const playerAfter = updatedEntities.find(e => e.id === state.yourPlayerId);
-            console.log(`Your player's teamId AFTER update:`, playerAfter?.teamId);
-            console.groupEnd();
-            // --- END DEBUG ---
 
             return {
                 ...state,

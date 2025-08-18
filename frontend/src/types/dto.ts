@@ -49,9 +49,9 @@ export interface TileDto {
  * Это то, что будет лежать в "ячейке" заклинаний.
  */
 export interface AbilityStateDto {
-    abilityTemplateId: string;      // ID шаблона
-    turnCooldown: number;      // Текущий кулдаун в ходах
-    cooldownEndTime: number;   // Временная метка в мс, когда КД закончится
+    abilityTemplateId: string;     
+    turnCooldown: number;     
+    cooldownEndTime: number;  
 }
 
 
@@ -134,12 +134,12 @@ export interface EntityAttackEvent {
 
 export interface EntityStatsUpdatedEvent {
     targetEntityId: string;
-    absorbedByArmor: number; // Убрали '?', т.к. поле, видимо, обязательное
-    damageToHp: number;      // Убрали '?', т.к. поле, видимо, обязательное
+    absorbedByArmor: number; 
+    damageToHp: number;     
     currentHp: number;
     currentDefense: number;
     dead: boolean;
-    healToHp?: number; // Оставили '?' для случаев, когда это не хил
+    healToHp?: number; 
 }
 
 /**
@@ -192,8 +192,8 @@ export interface CombatNextTurnEvent {
 
 export interface CombatParticipantsJoinedEvent {
     combatId: string;
-    participantIds: string[]; // ID новых участников
-    turnOrder: string[];      // Новый, полный порядок ходов
+    participantIds: string[]; 
+    turnOrder: string[];  
 }
 
 export interface TeamInviteEvent {

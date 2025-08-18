@@ -20,8 +20,21 @@ const CombatOutcomeNotification: React.FC = () => {
         return null;
     }
 
-    const isVictory = combatOutcomeInfo.outcome === CombatOutcome.VICTORY;
-    const color = isVictory ? '#4CAF50' : '#F44336';
+    
+    const getColorForOutcome = (outcome: CombatOutcome) => {
+        switch (outcome) {
+            case CombatOutcome.VICTORY:
+                return '#4CAF50';
+            case CombatOutcome.DEFEAT:
+                return '#F44336';
+            case CombatOutcome.END_BY_AGREEMENT:
+                return '#3498db';
+            default:
+                return '#95a5a6';
+        }
+    };
+
+    const color = getColorForOutcome(combatOutcomeInfo.outcome);
 
     const style: React.CSSProperties = {
         position: 'absolute',

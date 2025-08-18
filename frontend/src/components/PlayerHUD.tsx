@@ -9,7 +9,6 @@ const PlayerHUD: React.FC = () => {
     const [isDamaged, setIsDamaged] = useState(false);
     const [isArmorHit, setIsArmorHit] = useState(false);
     
-    // --- НОВОЕ: Сохраняем максимальное значение брони ---
     const [maxDefense, setMaxDefense] = useState<number>(0);
 
     const lastProcessedTimestamp = useRef<number | null>(null);
@@ -17,7 +16,6 @@ const PlayerHUD: React.FC = () => {
     const player = gameState.entities.find(e => e.id === gameState.yourPlayerId) as PlayerStateDto | undefined;
     const lastDamageInfo = gameState.lastDamage;
     
-    // Эффект для сохранения максимальной брони при появлении игрока
     useEffect(() => {
         if (player && player.defense > maxDefense) {
             setMaxDefense(player.defense);
@@ -109,7 +107,7 @@ const PlayerHUD: React.FC = () => {
                     <HealthBar current={player.currentHp} max={player.maxHp} isDamaged={isDamaged} />
                 </div>
             </div>
-            {maxDefense > 0 && ( // Показываем блок, только если есть броня
+            {maxDefense > 0 && (
                 <div style={{ marginTop: '10px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                         <span>Armor</span>

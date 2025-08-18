@@ -8,8 +8,6 @@ const HoveredEntityHUD: React.FC = () => {
     const { gameState } = useGame();
     const { entities, hoveredEntityId } = gameState;
 
-    // Используем useRef для хранения карты максимальных значений брони.
-    // Ключ - entityId, значение - maxDefense.
     const maxDefenseRef = useRef<Map<string, number>>(new Map());
 
     if (!hoveredEntityId) {
@@ -22,18 +20,13 @@ const HoveredEntityHUD: React.FC = () => {
         return null;
     }
 
-    // --- ЛОГИКА ОПРЕДЕЛЕНИЯ MAX DEFENSE ---
-    // Получаем текущее сохраненное максимальное значение для этой сущности.
     const knownMaxDefense = maxDefenseRef.current.get(entity.id) || 0;
     
-    // Если текущая броня больше, чем мы когда-либо видели, обновляем максимальное значение.
     if (entity.defense > knownMaxDefense) {
         maxDefenseRef.current.set(entity.id, entity.defense);
     }
     
-    // Используем либо сохраненное значение, либо текущее, если оно больше.
     const maxDefense = Math.max(knownMaxDefense, entity.defense);
-    // --- КОНЕЦ ЛОГИКИ ---
 
     return (
         <div style={{
@@ -59,8 +52,6 @@ const HoveredEntityHUD: React.FC = () => {
                     {entity.currentHp}/{entity.maxHp}
                 </span>
             </div>
-
-            {/* Показываем блок брони, только если она когда-либо была больше 0 */}
             {maxDefense > 0 && (
                 <div style={{ position: 'relative', height: '18px', border: '1px solid #000' }}>
                     <ArmorBar current={entity.defense} max={maxDefense} />

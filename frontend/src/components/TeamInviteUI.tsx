@@ -12,14 +12,8 @@ const TeamInviteUI: React.FC = () => {
     }
 
     const handleResponse = (accepted: boolean) => {
-        // БЫЛО:
-        // const payload: RespondToTeamInviteRequest = { accepted };
-        
-        // СТАЛО:
         const payload: RespondToTeamRequest = { accepted };
         
-        // ВАЖНО: Путь для отправки тоже должен соответствовать вашему контроллеру.
-        // Я предполагаю, что он выглядит так. Если он другой, замените его.
         publish(`/app/session/${sessionId}/team/respond`, payload);
         
         dispatch({ type: 'CLEAR_TEAM_INVITE' });
