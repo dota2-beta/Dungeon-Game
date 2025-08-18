@@ -1,6 +1,6 @@
 package dev.mygame.enums;
 
-public enum AbilityUseResult {
+public enum AbilityUseResultEnum {
     SUCCESS,                // всё успешно
     NOT_ENOUGH_AP,          // недостаточно ap
     ON_COOLDOWN,            // способность на кулдауне

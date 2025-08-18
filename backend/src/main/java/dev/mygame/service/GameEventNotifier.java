@@ -14,6 +14,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Сервис, который централизует логику отправки WebSocket-уведомлений
+ * <p>
+ * Предоставляет методы для отправки игровых событий.
+ * Активируется по подписке на внутренние события приложения ({@link SessionEvent})
+ * и через прямой вызов его методов из других сервисов.
+ */
 @Service
 @RequiredArgsConstructor
 public class GameEventNotifier {
@@ -33,7 +40,6 @@ public class GameEventNotifier {
         }
     }
 
-    // Метод для определения eventType
     private String resolveEventType(Object payload) {
         if (payload instanceof PlayerLeftEvent) return "player_left";
         if (payload instanceof TeamUpdatedEvent) return "team_updated";
@@ -50,8 +56,7 @@ public class GameEventNotifier {
         if (payload instanceof CasterStateUpdatedEvent) return "caster_state_updated";
         if (payload instanceof AbilityCastedEvent) return "ability_casted";
         if (payload instanceof PlayerJoinedEvent) return "player_joined";
-        // ... и так далее для всех публичных событий
-        return null; // или бросить исключение, если тип неизвестен
+        return null;
     }
 
 
@@ -69,7 +74,7 @@ public class GameEventNotifier {
     /**
      * Отправляет приватное событие конкретному игроку.
      * @param player    Игрок-получатель.
-     * @param eventType Тип события (например, "team_invite").
+     * @param eventType Тип события.
      * @param payload   Объект с данными события.
      */
     public void notifyPlayer(Player player, String eventType, Object payload) {
@@ -83,7 +88,7 @@ public class GameEventNotifier {
     /**
      * Отправляет приватное событие группе игроков.
      * @param players   Список игроков-получателей.
-     * @param eventType Тип события (например, "peace_proposal_result").
+     * @param eventType Тип события.
      * @param payload   Объект с данными события.
      */
     public void notifyPlayers(List<Player> players, String eventType, Object payload) {

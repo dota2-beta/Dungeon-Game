@@ -5,7 +5,8 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class DamageResult {
+public class DamageResult implements EffectResult {
+    private String entityId;
     private int damage;
     private int absorbedByArmor;
     private int damageToHp;

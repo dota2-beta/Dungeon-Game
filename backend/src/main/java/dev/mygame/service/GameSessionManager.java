@@ -34,6 +34,14 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 
+/**
+ * Главный сервис для управления игровыми сессиями.
+ * <p>
+ * Отвечает за создание, хранения активных сессий и маршрутизацию
+ * всех входящих запросов от игроков (подключение, действия)
+ * в соответствующий экземпляр {@link GameSession}.
+ * Также отслеживает завершение сессий для их удаления.
+ */
 @Data
 @AllArgsConstructor
 @Service
@@ -125,7 +133,7 @@ public class GameSessionManager implements GameSessionEndListener {
                 .gameSessionMapper(gameSessionMapper)
                 .build();
         gameSession.addGameSessionEndListener(this);
-        spawnerService.spawnMonstersForMap(gameSession);
+        spawnerService.spawnMonsters(gameSession);
 
         activeSessions.put(sessionId, gameSession);
         return sessionId;
@@ -178,16 +186,6 @@ public class GameSessionManager implements GameSessionEndListener {
 
         gameSession.handleEntityAction(actingPlayer.getId(), entityActionMapper.toEntityAction(playerAction));
     }
-
-//    public void sendInitialStateToPlayer(GameSession gameSession, String userId) {
-//        MappingContext context = new MappingContext(
-//                userId,
-//                props.getBattleArenaRadius()
-//        );
-//        GameSessionStateDto sessionState = gameSessionMapper.toGameSessionState(gameSession, context);
-//
-//        notifier.notifyFullGameState(userId, gameSession.getSessionID(), sessionState);
-//    }
 
     @Override
     public void onGameSessionEnd(GameSession session) {

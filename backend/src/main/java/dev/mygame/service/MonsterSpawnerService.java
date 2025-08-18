@@ -9,6 +9,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+/**
+ * Сервис, отвечающий за начальное заселение игровой карты монстрами при создании сессии
+ * <p>
+ * Он считывает предопределенные точки спавна из объекта {@link GameMapHex},
+ * определяет по символу какой шаблон монстра использовать,
+ * и делегирует создание объекта монстра фабрике {@link EntityFactory}.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -20,7 +27,7 @@ public class MonsterSpawnerService {
      * Заселяет карту монстрами для указанной игровой сессии.
      * @param session Игровая сессия, которую нужно заселить.
      */
-    public void spawnMonstersForMap(GameSession session) {
+    public void spawnMonsters(GameSession session) {
         GameMapHex map = session.getGameMap();
 
         if (map == null || map.getMonsterSpawnPoints() == null || map.getMonsterSpawnPoints().isEmpty()) {

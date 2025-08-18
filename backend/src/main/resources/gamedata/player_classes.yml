@@ -11,7 +11,7 @@ player-classes:
       initiative: 10
       maxAP: 8
       attackRange: 1
-      aggroRadius: 0
+      aggroRadius: -1
 
   - templateId: "Healer"
     name: "Healer"
@@ -25,7 +25,7 @@ player-classes:
       initiative: 15
       maxAP: 8
       attackRange: 3
-      aggroRadius: 0
+      aggroRadius: -1
 
   - templateId: "Archer"
     name: "Archer"
@@ -39,7 +39,7 @@ player-classes:
       initiative: 15
       maxAP: 8
       attackRange: 5
-      aggroRadius: 0
+      aggroRadius: -1
 
 
   - templateId: "mage"
@@ -55,4 +55,4 @@ player-classes:
       initiative: 12
       maxAP: 9
       attackRange: 3
-      aggroRadius: 0
+      aggroRadius: -1

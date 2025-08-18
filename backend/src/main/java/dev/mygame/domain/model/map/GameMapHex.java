@@ -55,9 +55,6 @@ public class GameMapHex {
         if (!targetTile.isPassable()) {
             return new ArrayList<>();
         }
-        if (targetTile == null || !targetTile.isPassable()) {
-            return new ArrayList<>();
-        }
         if (start.equals(end)) {
             return Collections.singletonList(start);
         }
@@ -106,6 +103,7 @@ public class GameMapHex {
         }
         return new ArrayList<>();
     }
+
     private List<Hex> reconstructPath(AStarNode node) {
         List<Hex> path = new ArrayList<>();
 

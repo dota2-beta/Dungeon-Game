@@ -10,18 +10,25 @@ import dev.mygame.domain.model.map.Hex;
 import dev.mygame.domain.session.AbilityInstance;
 import dev.mygame.domain.session.GameSession;
 import dev.mygame.dto.websocket.event.AbilityCastedEvent;
-import dev.mygame.enums.AbilityUseResult;
+import dev.mygame.enums.AbilityUseResultEnum;
 import dev.mygame.enums.EntityStateType;
+import dev.mygame.service.internal.AbilityUseResult;
+import dev.mygame.service.internal.EffectResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * Сервис, который обрабатывает использование способностей, проводит их валидацию и применяет эффекты к целям.
+ * Использует стратегии ({@link AbilityEffect}) для применения различных типов эффектов.
+ */
 @Service
 public class AbilityService {
     private final Map<String, AbilityEffect> strategies;
@@ -32,12 +39,23 @@ public class AbilityService {
                 .collect(Collectors.toMap(AbilityEffect::getEffectType, Function.identity()));
     }
 
+    /**
+     * Центральный метод сервиса, который отвечает за логику применения и валидации способности.
+     * @param gameSession сессия, в рамках которой используется способность.
+     * @param caster сущность (Entity), которая применяет способность.
+     * @param abilityInstance информация о способности, применяемой caster'ом.
+     * @param targetHex гекс (клетка), к которому способность применена
+     * @return AbilityUseResult результат применения способности
+     */
     public AbilityUseResult useAbility(GameSession gameSession, Entity caster, AbilityInstance abilityInstance, Hex targetHex) {
         boolean isInCombat = caster.getState() == EntityStateType.COMBAT;
         if(!abilityInstance.isReady(caster.getState())) {
             if(caster instanceof Player)
                 gameSession.sendErrorMessageToPlayer((Player) caster, "On cooldown", "400");
-            return AbilityUseResult.ON_COOLDOWN;
+            return AbilityUseResult.builder()
+                    .caster(caster)
+                    .success(AbilityUseResultEnum.ON_COOLDOWN)
+                    .build();
         }
 
         AbilityTemplate abilityTemplate = abilityInstance.getTemplate();
@@ -46,13 +64,19 @@ public class AbilityService {
            && isInCombat) {
             if(caster instanceof Player)
                 gameSession.sendErrorMessageToPlayer((Player) caster, "Not enough AP", "400");
-            return AbilityUseResult.NOT_ENOUGH_AP;
+            return AbilityUseResult.builder()
+                    .caster(caster)
+                    .success(AbilityUseResultEnum.NOT_ENOUGH_AP)
+                    .build();
         }
 
         if(targetHex.distanceTo(caster.getPosition()) > abilityTemplate.getRange()) {
             if(caster instanceof Player)
                 gameSession.sendErrorMessageToPlayer((Player) caster, "Out of range", "400");
-            return AbilityUseResult.OUT_OF_RANGE;
+            return AbilityUseResult.builder()
+                    .caster(caster)
+                    .success(AbilityUseResultEnum.OUT_OF_RANGE)
+                    .build();
         }
 
         if (isInCombat) {
@@ -67,17 +91,14 @@ public class AbilityService {
 
         gameSession.publishCasterStateUpdate(caster);
 
-        AbilityCastedEvent castedEvent = AbilityCastedEvent.builder()
-                .casterId(caster.getId())
-                .abilityTemplateId(abilityTemplate.getTemplateId())
-                .targetHex(targetHex)
-                .build();
-        gameSession.publishEvent(castedEvent);
-
         List<Entity> affectedTargets = gameSession.findTargetsInArea(targetHex, abilityTemplate.getAreaOfEffectRadius());
+        List<EffectResult> allEffectResults = new ArrayList<>();
 
         if (affectedTargets.isEmpty()) {
-            return AbilityUseResult.SUCCESS;
+            return AbilityUseResult.builder()
+                    .caster(caster)
+                    .success(AbilityUseResultEnum.SUCCESS)
+                    .build();
         }
 
         for (EffectTemplate effectData : abilityTemplate.getEffects()) {
@@ -90,11 +111,18 @@ public class AbilityService {
                         .targetHex(targetHex)
                         .targets(affectedTargets)
                         .build();
-                strategy.apply(abilityContext);
+                allEffectResults.addAll(strategy.apply(abilityContext));
             } else {
                 log.warn("No ability effect strategy found for type: {}", effectData.getType());
             }
         }
-        return AbilityUseResult.SUCCESS;
+        return AbilityUseResult.builder()
+                .success(AbilityUseResultEnum.SUCCESS)
+                .caster(caster)
+                .abilityTemplateId(abilityTemplate.getTemplateId())
+                .targetHex(targetHex)
+                .affectedTargets(affectedTargets)
+                .effectsResults(allEffectResults)
+                .build();
     }
 }

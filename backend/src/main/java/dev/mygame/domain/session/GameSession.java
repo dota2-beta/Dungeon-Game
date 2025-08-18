@@ -2,6 +2,7 @@ package dev.mygame.domain.session;
 
 //import dev.mygame.game.model.map.Map;
 import dev.mygame.config.StandartEntityGameSettings;
+import dev.mygame.domain.event.CombatEventListener;
 import dev.mygame.domain.event.SessionEvent;
 import dev.mygame.domain.model.Entity;
 import dev.mygame.domain.model.GameObject;
@@ -12,7 +13,6 @@ import dev.mygame.dto.websocket.event.*;
 import dev.mygame.dto.websocket.request.PeaceProposalEvent;
 import dev.mygame.dto.websocket.request.PeaceProposalResultEvent;
 import dev.mygame.dto.websocket.response.*;
-import dev.mygame.enums.AbilityUseResult;
 import dev.mygame.enums.EntityStateType;
 import dev.mygame.mapper.EntityMapper;
 import dev.mygame.mapper.GameSessionMapper;
@@ -21,12 +21,10 @@ import dev.mygame.service.AIService;
 import dev.mygame.service.AbilityService;
 import dev.mygame.service.FactionService;
 import dev.mygame.service.GameEventNotifier;
-import dev.mygame.service.internal.DamageResult;
+import dev.mygame.service.internal.*;
 import dev.mygame.enums.ActionType;
 import dev.mygame.enums.CombatOutcome;
-import dev.mygame.domain.event.CombatEndListener;
 import dev.mygame.domain.event.GameSessionEndListener;
-import dev.mygame.service.internal.EntityAction;
 import lombok.Builder;
 import lombok.Data;
 import org.slf4j.Logger;
@@ -41,7 +39,7 @@ import java.util.stream.Collectors;
 
 @Data
 @Builder
-public class GameSession implements CombatEndListener {
+public class GameSession implements CombatEventListener {
     private String sessionID;
     private final ApplicationEventPublisher eventPublisher;
     private final GameEventNotifier notifier;
@@ -77,6 +75,10 @@ public class GameSession implements CombatEndListener {
     @Builder.Default
     private List<GameSessionEndListener> endListeners = new ArrayList<>();;
 
+    /**
+     * Метод для добавления новых сущностей в сессию
+     * @param entity объект сущности
+     */
     public void addEntity(Entity entity) {
         if(!entities.containsKey(entity.getId())) {
             entities.put(entity.getId(), entity);
@@ -91,6 +93,10 @@ public class GameSession implements CombatEndListener {
         eventPublisher.publishEvent(new SessionEvent<>(this, this, payload));
     }
 
+    /**
+     * Отправляет полное состояние текущей игровой сессии одному конкретному пользователю.
+     * @param userId ID пользователя-получателя.
+     */
     public void sendInitialStateToPlayer(String userId) {
         MappingContext context = new MappingContext(userId);
         GameSessionStateDto sessionState = gameSessionMapper.toGameSessionState(this, context);
@@ -98,11 +104,13 @@ public class GameSession implements CombatEndListener {
         notifier.notifyFullGameState(userId, this.getSessionID(), sessionState);
     }
 
+    /**
+     * Центральный метод для обработки всех событий, которые инициирует какая-либо сущность
+     * @param entityId ID сущности-инициатора.
+     * @param action   Объект, описывающий действие.
+     */
     public void handleEntityAction(String entityId, EntityAction action) {
         Entity entity = entities.get(entityId);
-        System.out.println("\n--- [GameSession] handleEntityAction received ---");
-        System.out.println("    From Entity ID: " + entityId + " (" + (entity != null ? entity.getName() : "NOT FOUND") + ")");
-        System.out.println("    Action Type: " + action.getActionType());
 
         if (entity == null || entity.isDead()) {
             if (entity instanceof Player) {
@@ -119,21 +127,15 @@ public class GameSession implements CombatEndListener {
             CombatInstance combat = findCombatForEntity(entityId);
 
             if (combat != null) {
-                System.out.println("    Entity is in Combat. Current turn is: " + combat.getCurrentTurnEntityId());
                 if (!combat.getCurrentTurnEntityId().equals(entityId)) {
-                    System.out.println("    !!! ACTION DENIED: Not entity's turn. !!!");
                     if (entity instanceof Player) {
                         sendErrorMessageToPlayer((Player) entity, "It's not your turn!", "NOT_YOUR_TURN");
                     }
                     return;
                 }
-                System.out.println("    Action PERMITTED: It is entity's turn.");
             } else {
-                System.out.println("    !!! WARNING: Entity is in COMBAT state but no combat instance was found. !!!");
                 return;
             }
-        } else {
-            System.out.println("    Entity is in EXPLORING state. Action is permitted.");
         }
 
         ActionType actionType = action.getActionType();
@@ -180,8 +182,65 @@ public class GameSession implements CombatEndListener {
 
         AbilityUseResult result = abilityService.useAbility(this, caster, abilityToUse, targetHex);
 
-        if (result != AbilityUseResult.SUCCESS) {
-            return;
+        switch (result.getSuccess()) {
+            case OUT_OF_RANGE: {
+                notifier.notifyError((Player) caster, "Target is out of range", "400");
+                return;
+            }
+            case ON_COOLDOWN: {
+                notifier.notifyError((Player) caster, "Ability on cooldown", "400");
+                return;
+            }
+            case NOT_ENOUGH_AP: {
+                notifier.notifyError((Player) caster, "You haven't enough action point", "400");
+                return;
+            }
+            case CASTER_IS_DEAD: {
+                notifier.notifyError((Player) caster, "You are dead", "400");
+                return;
+            }
+            case INVALID_TARGET: {
+                notifier.notifyError((Player) caster, "Invalid target", "400");
+                return;
+            }
+        }
+
+        publishCasterStateUpdate(result.getCaster());
+        AbilityCastedEvent castedEvent = AbilityCastedEvent.builder()
+                .casterId(caster.getId())
+                .abilityTemplateId(result.getAbilityTemplateId())
+                .targetHex(targetHex)
+                .build();
+        publishEvent(castedEvent);
+
+        for (EffectResult effectResult : result.getEffectsResults()) {
+            if (effectResult instanceof DamageResult damageResult) {
+                Entity target = entities.get(damageResult.getEntityId());
+                if (target == null) continue;
+
+                EntityStatsUpdatedEvent event = EntityStatsUpdatedEvent.builder()
+                        .targetEntityId(target.getId())
+                        .damageToHp(damageResult.getDamageToHp())
+                        .isDead(damageResult.isDead())
+                        .absorbedByArmor(damageResult.getAbsorbedByArmor())
+                        .currentDefense(target.getDefense())
+                        .currentHp(target.getCurrentHp())
+                        .build();
+                publishEvent(event);
+            }
+
+            if(effectResult instanceof HealResult healResult) {
+                Entity target = entities.get(healResult.getEntityId());
+                if (target == null) continue;
+
+                EntityStatsUpdatedEvent event = EntityStatsUpdatedEvent.builder()
+                    .targetEntityId(target.getId())
+                    .currentHp(healResult.getNewCurrentHp())
+                    .healToHp(healResult.getActualHealedAmount())
+                    .isDead(false)
+                    .build();
+                publishEvent(event);
+            }
         }
 
         // если способность дамажит, то выделем тех, кто получил дамаг, и проверяем, являются ли они противниками
@@ -205,7 +264,7 @@ public class GameSession implements CombatEndListener {
         if (caster.getState() == EntityStateType.EXPLORING && hostileTarget.getState() == EntityStateType.EXPLORING) {
             log.info("Combat initiated by ability...");
             List<Entity> participants = findNearbyAlliesAndEnemies(caster, hostileTarget);
-            startCombatWithInitiator(participants, caster);
+            startCombat(participants);
         }
         // присоединяемся к бою
         else if (caster.getState() == EntityStateType.EXPLORING && hostileTarget.getState() == EntityStateType.COMBAT) {
@@ -219,6 +278,15 @@ public class GameSession implements CombatEndListener {
 
     }
 
+    /**
+     * Завершает текущий ход для сущности, находящейся в бою.
+     * <p>
+     * Метод находит бой, в котором участвует сущность, и делегирует ему
+     * команду на переход к следующему ходу. Если сущность не находится в бою,
+     * действие безопасно игнорируется.
+     *
+     * @param entityId ID сущности, завершающей ход.
+     */
     public void endTurn(String entityId) {
         Entity entity = entities.get(entityId);
         if (entity.getState() != EntityStateType.COMBAT) {
@@ -247,7 +315,6 @@ public class GameSession implements CombatEndListener {
 
     private void entityMove(String entityId, Hex targetHex) {
         Entity entity = entities.get(entityId);
-        //Player player = (entity instanceof Player) ? (Player) entity : null;
         if (entity == null) {
             return;
         }
@@ -280,11 +347,7 @@ public class GameSession implements CombatEndListener {
 
         this.gameMap.getTile(entity.getPosition()).setOccupiedById(null);
 
-        System.out.println("--- [SERVER] entityMove: " + entityId + " ---");
-        System.out.println("    Position BEFORE: " + entity.getPosition());
-
         entity.setPosition(targetHex);
-        System.out.println("    Position AFTER: " + entity.getPosition());
 
         this.gameMap.getTile(targetHex).setOccupiedById(entity.getId());
 
@@ -302,9 +365,6 @@ public class GameSession implements CombatEndListener {
 
         publishEvent( movedEvent);
         checkForCombatStart(entity);
-        if (entity.getState() == EntityStateType.COMBAT) {
-            //checkAndEndTurnIfNeeded(entity);
-        }
     }
 
     private void entityAttack(String attackerId, String targetId) {
@@ -337,7 +397,7 @@ public class GameSession implements CombatEndListener {
 
                 List<Entity> participants = findNearbyAlliesAndEnemies(attacker, target);
 
-                startCombatWithInitiator(participants, attacker);
+                startCombat(participants);
 
             } else if(Objects.equals(attacker.getTeamId(), target.getTeamId())) {
                 DamageResult damageResult = target.takeDamage(attacker.getAttack());
@@ -391,6 +451,14 @@ public class GameSession implements CombatEndListener {
         publishEvent(statsUpdateEvent);
     }
 
+    /**
+     * Находит и возвращает список всех сущностей, находящихся в некотором
+     * радиусе от заданной точки.
+     *
+     * @param centerHex центр области поиска.
+     * @param radius    радиус области в гексах (0 = только центральный гекс).
+     * @return Список найденных сущностей. Возвращает пустой список, если никто не найден.
+     */
     public List<Entity> findTargetsInArea(Hex centerHex, int radius) {
         if (radius == 0) {
             Entity targetInCenter = this.getEntityAt(centerHex);
@@ -433,12 +501,20 @@ public class GameSession implements CombatEndListener {
         this.endListeners.remove(listener);
     }
 
+    /**
+     * Оповещает всех зарегистрированных слушателей о завершении этой игровой сессии.
+     */
     public void notifyGameSessionEndListeners() {
         for(GameSessionEndListener listener : this.endListeners) {
             listener.onGameSessionEnd(this);
         }
     }
 
+    /**
+     * Метод для получения игрока по его веб-сокет соединению
+     * @param websocketSessionId ID соединения, по которому нужно найти игрока.
+     * @return объект {@link Player} найденного игрока или {@code null}.
+     */
     public Player getPlayerByWebsocketSessionId(String websocketSessionId) {
         for(Entity entity : entities.values())
             if(entity instanceof Player player)
@@ -447,6 +523,12 @@ public class GameSession implements CombatEndListener {
         return null;
     }
 
+    /**
+     * Метод для проверки необходимости начала боя после перемещения.
+     * <p>
+     * Бой начинается, когда сущность заходит в зону "агра".
+     * @param movedEntity ID сущности, которая совершила перемещение
+     */
     public void checkForCombatStart(Entity movedEntity) {
         if(movedEntity.getState() == EntityStateType.COMBAT)
             return;
@@ -457,7 +539,6 @@ public class GameSession implements CombatEndListener {
         if (nearbyEntities.isEmpty())
             return;
 
-        //List<Entity> nearbyEnemies = new ArrayList<>();
         boolean isEnemyPresent = false;
         String existingCombatId = null;
         for(Entity nearbyEntity : nearbyEntities)
@@ -491,8 +572,7 @@ public class GameSession implements CombatEndListener {
             convertAbilityCooldownByEntityStateType(EntityStateType.COMBAT, joiningGroup);
             activeCombats.get(existingCombatId).addParticipantsToCombat(joiningGroup);
         } else {
-            System.out.println("--- [SERVER] Combat condition met for entity: " + movedEntity.getId() + " at position " + movedEntity.getPosition() + " ---");
-            startCombatByProximity(joiningGroup);
+            startCombat(joiningGroup);
         }
     }
 
@@ -504,25 +584,21 @@ public class GameSession implements CombatEndListener {
                 .toList();
     }
 
-    public void startCombatWithInitiator(List<Entity> participants, Entity initiator) {
-        System.out.println("--- [GameSession] Starting combat with initiator: " + initiator.getName() + " ---");
+    /**
+     * Создает и запускает новый бой с указанными участниками.
+     * <p>
+     * Метод инициализирует {@link CombatInstance}, переводит способности участников
+     * в боевой режим (конвертирует кулдауны), добавляет бой в список активных
+     * и оповещает всех клиентов о его начале через событие {@link CombatStartedEvent}.
+     *
+     * @param participants Все сущности, вступающие в бой.
+     */
+    public void startCombat(List<Entity> participants) {
         String combatId = UUID.randomUUID().toString();
-        CombatInstance combat = new CombatInstance(combatId, this, participants, aiService);
-
+        CombatInstance combat = new CombatInstance(combatId, participants, aiService, this.getStandartEntityGameSettings().getDefaultEntityCurrentAp(), this);
+        combat.start();
         convertAbilityCooldownByEntityStateType(EntityStateType.COMBAT, participants);
 
-        combat.addListener(this);
-        activeCombats.put(combatId, combat);
-        publishCombatStartedEvent(combat, combatId);
-    }
-
-    public void startCombatByProximity(List<Entity> participants) {
-        System.out.println("--- [GameSession] Starting combat by proximity ---");
-        String combatId = UUID.randomUUID().toString();
-        CombatInstance combat = new CombatInstance(combatId, this, participants, aiService);
-        convertAbilityCooldownByEntityStateType(EntityStateType.COMBAT, participants);
-
-        combat.addListener(this);
         activeCombats.put(combatId, combat);
 
         publishCombatStartedEvent(combat, combatId);
@@ -553,6 +629,15 @@ public class GameSession implements CombatEndListener {
             }
         }
     }
+    /**
+     * Отправляет клиентам актуальную информацию о текущих очках действия (ОД)
+     * и кулдаунах способностей указанного игрока.
+     * <p>
+     * Вызывается после действий, влияющих на эти параметры (например, каст способности),
+     * для поддержания UI на стороне клиента в синхронизированном состоянии.
+     *
+     * @param player Сущность, чьи данные по ОД и кулдаунам нужно отправить.
+     */
     public void publishCasterStateUpdate(Entity player) {
         List<AbilityCooldownDto> cooldowns = player.getAbilities().stream()
                 .map(ab -> AbilityCooldownDto.builder()
@@ -571,6 +656,11 @@ public class GameSession implements CombatEndListener {
         publishEvent(updateEvent);
     }
 
+    /**
+     * Возвращает игрока по entityId
+     * @param entityId ID игрока, которого нужно найти
+     * @return объект {@link Player} найденный игрок. Или {@code null}, если не нашли
+     */
     public Player getPlayerByEntityId(String entityId) {
         Entity entity =  this.entities.get(entityId);
         if(entity instanceof Player)
@@ -619,42 +709,40 @@ public class GameSession implements CombatEndListener {
     }
 
     @Override
-    public void onCombatEnded(CombatInstance combat, CombatOutcome outcome, String winningTeamId, List<Entity> allParticipants) {
-        log.info("Combat {} ended for team {}. Outcome: {}", combat.getCombatId(), winningTeamId, outcome);
+    public void onCombatEnded(String combatId, CombatOutcome outcome, String winningTeamId, List<Entity> allParticipants) {
+        log.info("Combat {} ended. Outcome: {}", combatId, outcome);
+
         CombatEndedEvent event = CombatEndedEvent.builder()
-                .combatId(combat.getCombatId())
+                .combatId(combatId)
                 .outcome(outcome)
                 .winningTeamId(winningTeamId)
                 .build();
-
         publishEvent(event);
 
         for (Entity participant : allParticipants) {
             if (participant.isAlive()) {
                 participant.setState(EntityStateType.EXPLORING);
-                participant.removeDeathListener(combat);
             }
         }
-
         convertAbilityCooldownByEntityStateType(EntityStateType.EXPLORING, allParticipants);
-        if (outcome == CombatOutcome.VICTORY) {
-            //...
-        }
 
-        long remainingTeams = combat.getTeams().values().stream()
-                .filter(team -> team.stream().anyMatch(Entity::isAlive))
-                .count();
+        CombatInstance combat = activeCombats.get(combatId);
+        if (combat != null) {
+            long remainingTeams = combat.getTeams().values().stream()
+                    .filter(team -> team.stream().anyMatch(Entity::isAlive))
+                    .count();
 
-        if (remainingTeams <= 1) {
-            log.info("Scheduling removal of combat instance: {}", combat.getCombatId());
-
-            scheduler.schedule(() -> {
-                log.info("Executing delayed removal of combat instance: {}", combat.getCombatId());
-                activeCombats.remove(combat.getCombatId());
-            }, 1, TimeUnit.SECONDS); // Задержка в 1 секунду
+            if (remainingTeams <= 1) {
+                scheduler.schedule(() -> activeCombats.remove(combatId), 1, TimeUnit.SECONDS);
+            }
         }
     }
 
+    /**
+     * Обработчик события отправки приглашения в команду от одного игрока к другому
+     * @param inviterUser игрок, пригласивший в команду.
+     * @param targetUser игрок, которого пригласили в команду.
+     */
     public void handleInvitationPlayerToTeam(Player inviterUser, Player targetUser) {
         if(inviterUser.equals(targetUser) && Objects.equals(inviterUser.getTeamId(), targetUser.getTeamId())) {
             sendErrorMessageToPlayer(inviterUser, "Cannot invite this player.", "INVITE_INVALID");
@@ -671,6 +759,12 @@ public class GameSession implements CombatEndListener {
         notifier.notifyPlayer(targetUser, "team_invite", event);
     }
 
+    /**
+     * Собирает актуальный состав команды по её ID и инициирует рассылку
+     * события {@link TeamUpdatedEvent} для обновления состояния на клиентах.
+     *
+     * @param teamId ID команды, которую нужно обновить.
+     */
     public void publishTeamUpdated(String teamId) {
         Set<String> membersIds = this.entities.values().stream()
                 .filter(e -> Objects.equals(e.getTeamId(), teamId))
@@ -681,6 +775,18 @@ public class GameSession implements CombatEndListener {
         publishEvent(event);
     }
 
+    /**
+     * Обрабатывает ответ игрока на приглашение в команду.
+     * <p>
+     * Если приглашение принято, игрок добавляется в соответствующую команду, и
+     * публикуются обновления для старой и новой команд. Если отклонено,
+     * приглашение просто удаляется.
+     * <p>
+     * Если у игрока не было активных приглашений, ему отправляется ошибка.
+     *
+     * @param invitedUser игрок, отвечающий на приглашение.
+     * @param accepted    {@code true} при согласии, {@code false} при отказе.
+     */
     public void handleRespondPlayerToTeamInvite(Player invitedUser, boolean accepted) {
         String teamIdToJoin = pendingInvites.get(invitedUser.getUserId());
 
@@ -705,11 +811,15 @@ public class GameSession implements CombatEndListener {
 
         } else {
             log.info("Player {} declined invite to team {}", invitedUser.getName(), teamIdToJoin);
-
             // мб найти пригласившего и сообщить об отказе.
         }
     }
 
+    /**
+     * Получает игрока по значению userId
+     * @param invitedUserId идентификатор пользователя
+     * @return объект {@link Player}, который имеет этот userId
+     */
     public Player getPlayerByUserId(String invitedUserId) {
         return entities.values().stream()
                 .filter(e -> (e instanceof Player) &&
@@ -719,6 +829,12 @@ public class GameSession implements CombatEndListener {
                 .orElse(null);
     }
 
+    /**
+     * Получает сущность, находящуюся на указанном гексе.
+     *
+     * @param centerHex координата для поиска.
+     * @return объект {@link Entity} на этой координате или {@code null}, если она пуста.
+     */
     public Entity getEntityAt(Hex centerHex) {
         return entities.values().stream()
                 .filter(e -> e.getPosition().equals(centerHex))
@@ -726,6 +842,11 @@ public class GameSession implements CombatEndListener {
                 .orElse(null);
     }
 
+    /**
+     * Обработчик предложения заключить мир.
+     * @param combatId идентификатор боя, в котором заключается мир.
+     * @param initiatorUserId идентификатор игрока, который предложил заключить мир.
+     */
     public void handlePeaceProposal(String combatId, String initiatorUserId) {
         CombatInstance combatInstance = activeCombats.get(combatId);
         if (combatInstance == null) {
@@ -733,12 +854,10 @@ public class GameSession implements CombatEndListener {
         }
         Player initiator = getPlayerByUserId(initiatorUserId);
         if (initiator == null) return;
-
         peacefulAgreements.put(combatId, new ConcurrentHashMap<>());
         peacefulAgreements.get(combatId).put(initiatorUserId, true);
 
         PeaceProposalEvent payload = new PeaceProposalEvent(initiator.getId(), initiator.getName());
-
         publishUpdateToCombatants(combatInstance, "peace_proposal", payload);
 
         handleMonsterPresentInPeace(combatId, combatInstance);
@@ -756,6 +875,26 @@ public class GameSession implements CombatEndListener {
         }
     }
 
+    /**
+     * Обрабатывает ответ конкретного игрока на активное предложение о мире в рамках боя.
+     * <p>
+     * Логика разветвляется в зависимости от ответа:
+     * <ul>
+     *     <li><b>Отказ (accepted = false):</b> Процесс немедленно прерывается. Предложение
+     *     о мире считается отклоненным, пул голосов очищается, и все участники боя
+     *     получают уведомление об этом.</li>
+     *     <li><b>Согласие (accepted = true):</b> Голос игрока записывается. Затем
+     *     выполняется проверка, все ли живые игроки в бою теперь проголосовали "за".
+     *     Если все "за", то бой завершается мирным путем
+     *     ({@link CombatOutcome#END_BY_AGREEMENT}).</li>
+     * </ul>
+     * Метод ничего не делает, если бой не найден, уже завершен или для него нет
+     * активного предложения о мире.
+     *
+     * @param combatId          ID боя, к которому относится ответ.
+     * @param responserUserId   ID пользователя, который отвечает на предложение.
+     * @param accepted          {@code true}, если игрок согласен на мир, иначе {@code false}.
+     */
     public void handlePeaceResponse(String combatId, String responserUserId, boolean accepted) {
         CombatInstance combatInstance = activeCombats.get(combatId);
         Map<String, Boolean> votes = peacefulAgreements.get(combatId);
@@ -806,6 +945,10 @@ public class GameSession implements CombatEndListener {
         notifier.notifyPlayers(playersInCombat, updateType, payload);
     }
 
+    /**
+     * Обработчик выхода игрока из команды
+     * @param userId идентификатор игрока
+     */
     public void handleLeaveFromTeam(String userId) {
         Player playerWhoLeaves = getPlayerByUserId(userId);
         if(playerWhoLeaves == null)
@@ -821,7 +964,7 @@ public class GameSession implements CombatEndListener {
     }
 
     /**
-     * Обрабатывает отключение игрока от сессии.
+     * Обработчик отключения игрока от сессии.
      * @param websocketSessionId ID отключенной WebSocket-сессии.
      */
     public void handlePlayerDisconnect(String websocketSessionId) {
@@ -829,9 +972,9 @@ public class GameSession implements CombatEndListener {
         if (disconnectedPlayer == null) {
             return;
         }
+        endTurn(disconnectedPlayer.getId());
 
         this.removeEntity(disconnectedPlayer);
-
         PlayerLeftEvent event = new PlayerLeftEvent(disconnectedPlayer.getId());
         publishEvent(event);
 
@@ -845,12 +988,23 @@ public class GameSession implements CombatEndListener {
         }
     }
 
-    /**
-     * Проверяет, есть ли в сессии хотя бы один активный игрок.
-     * @return true, если есть хотя бы один объект Player.
-     */
     private boolean hasHumanPlayers() {
         return this.entities.values().stream()
                 .anyMatch(entity -> entity instanceof Player);
+    }
+
+    @Override
+    public Entity getEntityById(String id) {
+        return this.entities.get(id);
+    }
+
+    @Override
+    public void scheduleAiTurn(String monsterId) {
+        this.scheduler.schedule(() -> aiService.executeMonsterTurn(monsterId, this), 1, TimeUnit.SECONDS);
+    }
+
+    @Override
+    public void onCombatEvent(Object event) {
+        this.publishEvent(event);
     }
 }

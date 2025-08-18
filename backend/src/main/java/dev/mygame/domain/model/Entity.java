@@ -20,12 +20,12 @@ import java.util.Objects;
 @SuperBuilder
 @NoArgsConstructor
 public abstract class Entity extends GameMapObject {
-    protected String name;
-    protected int currentHp;
-    protected int maxHp;
-    protected int attack;
-    protected int defense;
-    protected int attackRange;
+    private String name;
+    private int currentHp;
+    private int maxHp;
+    private int attack;
+    private int defense;
+    private int attackRange;
     private int currentAP;
     private int maxAP;
     private int initiative;
@@ -34,8 +34,8 @@ public abstract class Entity extends GameMapObject {
     @Getter
     private List<AbilityInstance> abilities;
 
-    protected String teamId; // Id команды, к которой принадлежит Entity
-    protected String websocketSessionId;
+    private String teamId; // Id команды, к которой принадлежит Entity
+    private String websocketSessionId;
 
     private EntityStateType state;
 
@@ -43,12 +43,11 @@ public abstract class Entity extends GameMapObject {
     @EqualsAndHashCode.Exclude
     @ToString.Exclude
     private List<DeathListener> deathListener = new ArrayList<>();
-    //@JsonProperty("isDead")
     private boolean isDead = false;
 
     public DamageResult takeDamage(int damage) {
         if (this.isDead || damage <= 0) {
-            return new DamageResult(0, 0, 0, this.isDead);
+            return new DamageResult(this.getId(), 0, 0, 0, this.isDead);
         }
 
         int absorbedByArmor = 0;
@@ -76,19 +75,19 @@ public abstract class Entity extends GameMapObject {
             notifyDeathListeners();
         }
 
-        return new DamageResult(damage, absorbedByArmor, damageToHp, this.isDead);
+        return new DamageResult(this.getId(), damage, absorbedByArmor, damageToHp, this.isDead);
     }
 
     public HealResult takeHeal(int healAmount) {
         if (this.isDead || healAmount <= 0) {
-            return new HealResult(0, this.currentHp);
+            return new HealResult(this.getId(), 0, this.currentHp);
         }
         int oldHp = this.currentHp;
         int newHp = this.currentHp + healAmount;
         this.currentHp = Math.min(newHp, this.maxHp);
         int actualHealedAmount = this.currentHp - oldHp;
 
-        return new HealResult(actualHealedAmount, this.currentHp);
+        return new HealResult(this.getId(), actualHealedAmount, this.currentHp);
     }
 
     public boolean isAlive(){

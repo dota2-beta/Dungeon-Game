@@ -5,7 +5,8 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class HealResult {
+public class HealResult implements EffectResult {
+    private String entityId;
     private int actualHealedAmount;
     private int newCurrentHp;
 }

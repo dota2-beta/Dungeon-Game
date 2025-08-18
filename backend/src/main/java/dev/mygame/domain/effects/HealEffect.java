@@ -3,19 +3,20 @@ package dev.mygame.domain.effects;
 import dev.mygame.domain.model.Entity;
 import dev.mygame.domain.session.GameSession;
 import dev.mygame.dto.websocket.event.EntityStatsUpdatedEvent;
+import dev.mygame.service.internal.EffectResult;
 import dev.mygame.service.internal.HealResult;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
-public class HealEffect implements AbilityEffect{
-
+public class HealEffect implements AbilityEffect {
     @Override
-    public void apply(AbilityContext context) {
+    public List<EffectResult> apply(AbilityContext context) {
         int heal = context.getEffectData().getAmount();
         List<Entity> targetEntities = context.getTargets();
-        GameSession gameSession = context.getGameSession();
+        List<EffectResult> results = new ArrayList<>();
 
         for(Entity entity : targetEntities){
             if(entity.isDead())
@@ -26,16 +27,9 @@ public class HealEffect implements AbilityEffect{
             if (healResult.getActualHealedAmount() <= 0) {
                 continue;
             }
-
-            EntityStatsUpdatedEvent event = EntityStatsUpdatedEvent.builder()
-                    .targetEntityId(entity.getId())
-                    .currentHp(healResult.getNewCurrentHp())
-                    .healToHp(healResult.getActualHealedAmount())
-                    .isDead(false)
-                    .build();
-
-            gameSession.publishEvent(event);
+            results.add(healResult);
         }
+        return results;
     }
 
     @Override

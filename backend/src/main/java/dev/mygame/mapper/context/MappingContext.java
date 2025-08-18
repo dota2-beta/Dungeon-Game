@@ -7,5 +7,4 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MappingContext {
     private final String forUserId;
-    //private final int mapRadius;
 }

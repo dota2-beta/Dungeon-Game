@@ -1,10 +1,10 @@
 package dev.mygame.domain.session;
 
+import dev.mygame.domain.event.CombatEventListener;
 import dev.mygame.dto.websocket.event.*;
 import dev.mygame.dto.websocket.response.AbilityCooldownDto;
 import dev.mygame.enums.CombatOutcome;
 import dev.mygame.enums.EntityStateType;
-import dev.mygame.domain.event.CombatEndListener;
 import dev.mygame.domain.event.DeathListener;
 import dev.mygame.domain.model.Entity;
 import dev.mygame.domain.model.Monster;
@@ -16,17 +16,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Data
 @AllArgsConstructor
 public class CombatInstance implements DeathListener {
     private String combatId;
-
-    @EqualsAndHashCode.Exclude
-    private GameSession gameSession;
-
     private final AIService aiService;
 
     private Map<String, Set<Entity>> teams = new HashMap<>();
@@ -36,16 +31,22 @@ public class CombatInstance implements DeathListener {
     private boolean isFinished = false;
 
     private Set<String> hasTakenFirstTurn = new HashSet<>();
+    private final int apPerTurn;
 
-    private List<CombatEndListener> endListeners = new ArrayList<>();
+    @EqualsAndHashCode.Exclude
+    private final CombatEventListener eventListener;
 
     private static final Logger log = LoggerFactory.getLogger(CombatInstance.class);
 
-    public CombatInstance(String combatId, GameSession gameSession, List<Entity> initialParticipants, AIService aiService) {
+    public CombatInstance(String combatId, List<Entity> initialParticipants, AIService aiService, int apPerTurn, CombatEventListener eventListener) {
         this.combatId = combatId;
-        this.gameSession = gameSession;
         this.aiService = aiService;
+        this.apPerTurn = apPerTurn;
+        this.eventListener = eventListener;
         initializeTeamsAndListeners(initialParticipants);
+    }
+
+    public void start() {
         initializeTurnOrder();
         startNextTurn();
     }
@@ -84,140 +85,37 @@ public class CombatInstance implements DeathListener {
         log.info("Initialized new turn order for the round: {}", this.turnOrder);
     }
 
-
-
-    /**
-     * Инициализирует очередь ходов, когда есть явный инициатор.
-     * Инициатор ставится первым, остальные сортируются по инициативе.
-     */
-
-//    private void initializeTurnOrder(Entity initiator) {
-//        List<Entity> otherParticipants = new ArrayList<>();
-//        this.teams.values().forEach(team ->
-//                team.stream()
-//                        .filter(Entity::isAlive)
-//                        .filter(entity -> !entity.getId().equals(initiator.getId()))
-//                        .forEach(otherParticipants::add)
-//        );
-//
-//        otherParticipants.sort(
-//                Comparator.comparingInt(Entity::getInitiative).reversed()
-//                        .thenComparing(Entity::getId)
-//        );
-//
-//        this.turnOrder.clear();
-//        this.turnOrder.add(initiator.getId());
-//        otherParticipants.forEach(entity -> this.turnOrder.add(entity.getId()));
-//
-//        this.currentTurnIndex = 0;
-//
-//        log.info("--- [INITIATOR-BASED SORT] Final turn order: {}", this.turnOrder);
-//    }
-
-//    private void startNextTurn() {
-//        printState("At start of startNextTurn");
-//        if (this.currentTurnIndex != -1) {
-//            this.currentTurnIndex++;
-//        } else {
-//            this.currentTurnIndex = 0;
-//        }
-//
-//        if (currentTurnIndex >= this.turnOrder.size()) {
-//            initializeTurnOrder();
-//            this.currentTurnIndex = 0;
-//        }
-//
-//        if (this.turnOrder.isEmpty()) {
-//            endCombatForAll();
-//            return;
-//        }
-//
-//        String currentEntityId = getCurrentTurnEntityId();
-//        Entity nextEntity = this.gameSession.getEntities().get(currentEntityId);
-//
-//        if (nextEntity == null || !nextEntity.isAlive()) {
-//            startNextTurn();
-//            return;
-//        }
-//        nextEntity.reduceAllCooldowns();
-//
-//        if (hasTakenFirstTurn.contains(currentEntityId)) {
-//            int restoredAP = Math.min(
-//                    nextEntity.getCurrentAP() + gameSession.getStandartEntityGameSettings().getDefaultEntityCurrentAp(),
-//                    nextEntity.getMaxAP()
-//            );
-//            nextEntity.setCurrentAP(restoredAP);
-//        } else {
-//            final int startingAP = gameSession.getStandartEntityGameSettings().getDefaultEntityCurrentAp();
-//            nextEntity.setCurrentAP(startingAP);
-//            hasTakenFirstTurn.add(currentEntityId);
-//        }
-//        List<AbilityCooldownDto> currentAbilityCooldowns = nextEntity.getAbilities().stream()
-//                .map(abilityInstance -> AbilityCooldownDto.builder()
-//                        .turnCooldown(abilityInstance.getTurnCooldown())
-//                        .cooldownEndTime(abilityInstance.getCooldownEndTime())
-//                        .abilityTemplateId(abilityInstance.getTemplate().getTemplateId())
-//                        .build())
-//                .toList();
-//
-//
-//        CombatNextTurnEvent nextTurnEvent = CombatNextTurnEvent.builder()
-//                .combatId(this.combatId)
-//                .currentTurnEntityId(getCurrentTurnEntityId())
-//                .currentAP(nextEntity.getCurrentAP())
-//                .abilityCooldowns(currentAbilityCooldowns)
-//                .build();
-//        this.gameSession.publishUpdate("combat_next_turn", nextTurnEvent);
-//
-//        if (nextEntity instanceof Monster) {
-//            gameSession.getScheduler().schedule(() -> {
-//                aiService.executeMonsterTurn((Monster) nextEntity, this.gameSession);
-//            }, 1, TimeUnit.SECONDS);
-//        } else {
-//        }
-//        printState("After selecting next entity in startNextTurn");
-//    }
-
     private void startNextTurn() {
         if (isFinished) return;
-
-        // Ищем следующего ЖИВОГО участника
-        for (int i = 0; i < turnOrder.size() + 1; i++) { // Защита от бесконечного цикла
+        for (int i = 0; i < turnOrder.size() + 1; i++) {
             currentTurnIndex++;
-
-            // Если раунд закончился, начинаем новый
             if (currentTurnIndex >= turnOrder.size()) {
-                initializeTurnOrder(); // Пересобираем очередь из живых
+                initializeTurnOrder();
                 currentTurnIndex = 0;
             }
-
             if (turnOrder.isEmpty()) {
                 endCombatForAll();
                 return;
             }
-
-            Entity nextEntity = gameSession.getEntities().get(getCurrentTurnEntityId());
+            Entity nextEntity = eventListener.getEntityById(getCurrentTurnEntityId());
             if (nextEntity != null && nextEntity.isAlive()) {
-                // Нашли! Запускаем его ход.
                 beginTurnFor(nextEntity);
                 return;
             }
         }
 
-        // Если после полного круга не нашли живых - бой окончен
         log.warn("No alive entities found in turn order. Ending combat.");
         endCombatForAll();
     }
 
     private void beginTurnFor(Entity entity) {
         int currentAp = Math.min(
-                entity.getCurrentAP() + gameSession.getStandartEntityGameSettings().getDefaultEntityCurrentAp(),
+                entity.getCurrentAP() + this.apPerTurn,
                 entity.getMaxAP()
         );
         entity.setCurrentAP(currentAp);
         entity.reduceAllCooldowns();
 
-        // Отправляем событие
         List<AbilityCooldownDto> cooldowns = entity.getAbilities().stream()
                 .map(ability -> AbilityCooldownDto.builder()
                         .abilityTemplateId(ability.getTemplate().getTemplateId())
@@ -231,19 +129,13 @@ public class CombatInstance implements DeathListener {
                 .currentAP(entity.getCurrentAP())
                 .abilityCooldowns(cooldowns)
                 .build();
-        gameSession.publishEvent(nextTurnEvent);
+        eventListener.onCombatEvent(nextTurnEvent);
 
         if (entity instanceof Monster) {
-            gameSession.getScheduler().schedule(() -> {
-                aiService.executeMonsterTurn((Monster) entity, this.gameSession);
-            }, 1, TimeUnit.SECONDS);
+            eventListener.scheduleAiTurn(entity.getId());
         } else {
             System.out.println("--- Turn Start: " + entity.getName() + " (Player Controlled) - WAITING FOR ACTION ---");
         }
-    }
-
-    public void endCombatByAgreement() {
-
     }
 
     /**
@@ -256,7 +148,7 @@ public class CombatInstance implements DeathListener {
             return;
         EntityTurnEndEvent combatEndTurnEvent =
                 new EntityTurnEndEvent(getCurrentTurnEntityId());
-        gameSession.publishEvent(getCurrentTurnEntityId());
+        eventListener.onCombatEvent(combatEndTurnEvent);
         startNextTurn();
     }
 
@@ -265,11 +157,10 @@ public class CombatInstance implements DeathListener {
      * @param newParticipants Список новых сущностей для добавления.
      */
     public void addParticipantsToCombat(List<Entity> newParticipants) {
-        System.out.println("--- [GameSession] Adding participants to combat ---");
         initializeTeamsAndListeners(newParticipants);
 
         List<Entity> remainingInQueue = this.turnOrder.stream()
-                .map(id -> gameSession.getEntities().get(id))
+                .map(eventListener::getEntityById)
                 .filter(Objects::nonNull)
                 .toList();
         List<Entity> turnTakersToResort = new ArrayList<>(remainingInQueue);
@@ -289,25 +180,7 @@ public class CombatInstance implements DeathListener {
                 newParticipantIds,
                 new ArrayList<>(this.turnOrder)
         );
-        gameSession.publishEvent(event);
-    }
-
-    public void addListener(CombatEndListener combatEndListener) {
-        this.endListeners.add(combatEndListener);
-    }
-
-    public void removeListener(CombatEndListener combatEndListener) {
-        this.endListeners.remove(combatEndListener);
-    }
-
-    private void notifyCombatEndListeners(CombatOutcome combatOutcome, String winningTeamId, List<Entity> allParticipants) {
-        if (this.endListeners == null || this.endListeners.isEmpty()) {
-            return;
-        }
-        List<CombatEndListener> listeners = new ArrayList<>(this.endListeners);
-        for (CombatEndListener listener : listeners) {
-            listener.onCombatEnded(this, combatOutcome, winningTeamId, allParticipants);
-        }
+        eventListener.onCombatEvent(event);
     }
 
     public String getCurrentTurnEntityId() {
@@ -321,7 +194,7 @@ public class CombatInstance implements DeathListener {
     public void onEntityDied(Entity e) {
         log.info("CombatInstance: Entity {} died.", e.getName());
         EntityDiedEvent entityDiedEvent = new EntityDiedEvent(e.getId());
-        gameSession.publishEvent(entityDiedEvent);
+        eventListener.onCombatEvent(entityDiedEvent);
 
         long remainingTeamsCount = teams.values().stream()
                 .filter(t -> t.stream().anyMatch(Entity::isAlive))
@@ -343,20 +216,10 @@ public class CombatInstance implements DeathListener {
         String winningTeamId = findWinningTeam();
         CombatOutcome finalOutcome = (winningTeamId != null) ? CombatOutcome.VICTORY : CombatOutcome.DEFEAT;
 
-        notifyCombatEndListeners(finalOutcome, winningTeamId, allParticipants);
+        eventListener.onCombatEnded(this.combatId, finalOutcome, winningTeamId, allParticipants);
 
         this.teams.clear();
         this.turnOrder.clear();
-    }
-
-    public boolean isEntityAlive(String entityId) {
-        Entity entity = this.teams.values().stream()
-                .flatMap(Collection::stream)
-                .filter(e -> e.getId().equals(entityId))
-                .findFirst()
-                .orElse(null);
-        if (entity == null) return false;
-        return entity.isAlive();
     }
 
     public void endCombatForAllByAgreement() {
@@ -367,7 +230,7 @@ public class CombatInstance implements DeathListener {
                 .flatMap(Set::stream)
                 .toList();
 
-        notifyCombatEndListeners(CombatOutcome.END_BY_AGREEMENT, null, allParticipants);
+        eventListener.onCombatEnded(this.combatId, CombatOutcome.END_BY_AGREEMENT, null, allParticipants);
         this.teams.clear();
         this.turnOrder.clear();
     }

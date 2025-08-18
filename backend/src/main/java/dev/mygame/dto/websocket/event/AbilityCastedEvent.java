@@ -14,5 +14,4 @@ public class AbilityCastedEvent {
     private String casterId;
     private String abilityTemplateId;
     private Hex targetHex;
-    // private List<String> targetIds;
 }

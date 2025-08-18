@@ -24,7 +24,6 @@ public class WebSocketController {
 
     private final GameSessionManager gameSessionManager;
     private final SimpMessagingTemplate messagingTemplate;
-    private final ObjectMapper objectMapper;
 
     @MessageMapping("/join-session")
     public void onJoinSession(@Payload JoinRequest joinRequest, SimpMessageHeaderAccessor headerAccessor, Principal principal) {
@@ -50,7 +49,7 @@ public class WebSocketController {
     }
 
     @MessageMapping("/create-session")
-    public void onCreateSession(SimpMessageHeaderAccessor headerAccessor, Principal principal) {
+    public void onCreateSession(Principal principal) {
         String userId = principal.getName();
 
         try {

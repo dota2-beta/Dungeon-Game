@@ -3,6 +3,12 @@ package dev.mygame.service;
 import dev.mygame.domain.model.Entity;
 import org.springframework.stereotype.Service;
 
+/**
+ * Сервис для определения взаимоотношений между различными персонажами
+ * <p>
+ * Предоставляет единый метод {@link #areEnemies} для определения, являются ли
+ * две сущности врагами на основе их {@code teamId}
+ */
 @Service
 public class FactionService {
     public boolean areEnemies(Entity entity1, Entity entity2) {
