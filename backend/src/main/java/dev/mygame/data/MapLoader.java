@@ -74,7 +74,6 @@ public class MapLoader {
                 tiles.put(hex, tile);
             }
         }
-        //return new GameMapHex(tiles, playerSpawnPoints, monsterSpawnPoints);
         return GameMapHex.builder()
                 .tiles(tiles)
                 .playerSpawnPoints(playerSpawnPoints)

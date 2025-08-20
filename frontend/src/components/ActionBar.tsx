@@ -1,8 +1,8 @@
 import React from 'react';
-import { useGame } from '../context/GameContext';
 import { publish } from '../api/websocketService';
-import ActionPointsUI from './ActionPointsUI';
+import { useGame } from '../context/GameContext';
 import type { ProposePeaceRequest } from '../types/dto';
+import ActionPointsUI from './ActionPointsUI';
 
 const ActionBar: React.FC = () => {
     const { gameState } = useGame();

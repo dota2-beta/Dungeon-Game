@@ -1,9 +1,9 @@
-import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
-import type { GameSessionStateDto, PlayerAction, EntityStateDto, EntityStatsUpdatedEvent, Hex, EntityMovedEvent, TileDto, AbilityCastedEvent, AbilityTemplateDto } from '../types/dto';
-import { publish } from '../api/websocketService';
 import { gsap } from 'gsap';
-import { Pathfinder } from '../game/Pathfinder';
+import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { publish } from '../api/websocketService';
 import type { ExtendedGameSessionState, PlayerStateDto } from '../context/GameContext';
+import { Pathfinder } from '../game/Pathfinder';
+import type { AbilityCastedEvent, EntityMovedEvent, EntityStateDto, EntityStatsUpdatedEvent, Hex, TileDto } from '../types/dto';
 
 const HEX_SIZE = 24;
 
@@ -41,10 +41,6 @@ const hexDistance = (a: Hex, b: Hex): number => {
     return (Math.abs(vec.q) + Math.abs(vec.r) + Math.abs(s)) / 2;
 };
 
-const HEX_DIRECTIONS = [
-    { q: 1, r: 0 }, { q: 1, r: -1 }, { q: 0, r: -1 },
-    { q: -1, r: 0 }, { q: -1, r: 1 }, { q: 0, r: 1 }
-];
 const hexAdd = (a: Hex, b: Hex): Hex => ({ q: a.q + b.q, r: a.r + b.r });
 
 const getHexesInRange = (center: Hex, radius: number): Hex[] => {
@@ -67,7 +63,6 @@ export class GameRenderer {
 
     private gameState: ExtendedGameSessionState | null = null;
     private entityGraphics: Map<string, Graphics> = new Map();
-    private hoveredEntityId: string | null = null;
     private damagedEntityInfo: { id: string; clearTime: number } | null = null;
 
     private pathfinder: Pathfinder | null = null;
@@ -113,22 +108,17 @@ export class GameRenderer {
 
             this.app.ticker.add(this.updateAnimations.bind(this));
             
-            // ИСПРАВЛЕНО: Сначала присваиваем состояние
             this.gameState = initialState; 
-            // И только потом настраиваем обработчики
             this.setupEventHandlers();
             
-            console.log('%cRenderer: Building Pathfinder...', 'color: blue');
             this.pathfinder = new Pathfinder(initialState.mapState);
             
-            console.log('%cRenderer: Performing initial draw...', 'color: blue');
             this.drawMap();
             this.drawEntities();
 
             const player = initialState.entities.find(e => e.id === initialState.yourPlayerId);
         
             if (player) {
-                console.log(`Centering camera on player at [q:${player.position.q}, r:${player.position.r}]`);
                 this.centerCameraOn(player.position, false);
             }
         }
@@ -160,9 +150,7 @@ export class GameRenderer {
                 (a) => a.templateId === selectedAbilityId
             );
 
-            // Если шаблон не найден, ничего не рисуем.
             if (!abilityTemplate) {
-                // Можно добавить лог, но он будет спамить. Лучше просто ничего не делать.
                 return;
             }
 
@@ -251,14 +239,10 @@ export class GameRenderer {
                     !e.dead && e.position.q === targetHex.q && e.position.r === targetHex.r 
                 );
                 
-                //const isTargetAnAlly = player.teamId && player.teamId === targetEntity?.teamId;
-
-                // Если цель существует, это не мы сами и это НЕ СОЮЗНИК
                 if (targetEntity && targetEntity.id !== player.id) {
-                    console.log(`Target is not an ally. Sending ATTACK command to ${targetEntity.id}`);
+                    //console.log(`Target is not an ally. Sending ATTACK command to ${targetEntity.id}`);
                     publish(`/app/session/${this.gameState.sessionId}/action`, { actionType: 'ATTACK', targetId: targetEntity.id });
                 } else {
-                    // Во всех остальных случаях (цели нет, цель - это мы, цель - союзник) - двигаемся.
                     this.handleMoveRequest(player, targetHex);
                 }
             }
@@ -268,20 +252,15 @@ export class GameRenderer {
             if (!this.worldContainer || !this.gameState) return;
             const pos = event.data.getLocalPosition(this.worldContainer);
             const currentHoveredHex = pixelToHex(pos.x, pos.y);
-    
-            // --- НАЧАЛО ИЗМЕНЕНИЙ ---
-            // Ищем сущность под курсором
             const hoveredEntity = this.gameState.entities.find(e => 
                 !e.dead && e.position.q === currentHoveredHex.q && e.position.r === currentHoveredHex.r
             );
             const currentHoveredId = hoveredEntity ? hoveredEntity.id : null;
     
-            // Отправляем событие, только если ID изменился
             if (currentHoveredId !== this.lastHoveredEntityId) {
                 this.dispatch({ type: 'SET_HOVERED_ENTITY', payload: currentHoveredId });
                 this.lastHoveredEntityId = currentHoveredId;
             }
-            // --- КОНЕЦ ИЗМЕНЕНИЙ ---
     
             if (!this.hoveredHex || this.hoveredHex.q !== currentHoveredHex.q || this.hoveredHex.r !== currentHoveredHex.r) {
                 this.hoveredHex = currentHoveredHex;
@@ -300,7 +279,7 @@ export class GameRenderer {
         if (path.length > 1) {
             this.executeMovePath(path);
         } else {
-            console.warn("No path found or target is the same as start.");
+            //console.warn("No path found or target is the same as start.");
         }
     }
 
@@ -334,7 +313,7 @@ export class GameRenderer {
         for (let i = 1; i < path.length; i++) {
             const player = this.gameState!.entities.find((e: EntityStateDto) => e.id === this.gameState!.yourPlayerId)!;
             if (player.state === 'COMBAT' && player.currentAP < 1) {
-                console.log("Out of AP, stopping movement.");
+                //console.log("Out of AP, stopping movement.");
                 break;
             }
 
@@ -376,7 +355,6 @@ export class GameRenderer {
         const state = this.gameState;
         const seenEntityIds = new Set<string>();
 
-        // Находим teamId текущего игрока ОДИН РАЗ перед циклом для производительности
         const yourPlayerTeamId = state.entities.find(e => e.id === state.yourPlayerId)?.teamId;
 
         state.entities.forEach((entity: EntityStateDto) => {
@@ -410,7 +388,7 @@ export class GameRenderer {
                 if (isSelf) {
                     graphics.lineStyle(2, 0xFFFFFF, 1);
                 } else if (entity.teamId && entity.teamId === yourPlayerTeamId) {
-                    graphics.lineStyle(2, 0x00BFFF, 1); // Голубой для союзников
+                    graphics.lineStyle(2, 0x00BFFF, 1);
                 }
             }
 
@@ -504,21 +482,20 @@ export class GameRenderer {
     }
     
     public flashEntity(entityId: string, duration: number = 400) {
-        if (!this.gameState) return; // <-- ДОБАВЬТЕ ЭТУ ПРОВЕРКУ
+        if (!this.gameState) return;
         this.damagedEntityInfo = { id: entityId, clearTime: Date.now() + duration };
         this.drawEntities();
     }
 
     private updateAnimations() {
         if (this.damagedEntityInfo && Date.now() > this.damagedEntityInfo.clearTime) {
-            if (!this.gameState) return; // <-- ДОБАВЬТЕ ЭТУ ПРОВЕРКУ
+            if (!this.gameState) return; 
             this.damagedEntityInfo = null;
             this.drawEntities();
         }
     }
 
     private gameLoop(): void {
-        // Эта проверка важна, она остается
         if (!this.aoeHighlightGraphics || !this.gameState) {
             if (this.aoeHighlightGraphics) this.aoeHighlightGraphics.clear();
             return;
@@ -528,26 +505,19 @@ export class GameRenderer {
     
         const player = this.gameState.entities.find(e => e.id === this.gameState!.yourPlayerId);
     
-        // Проверяем, выбрана ли способность
         if (this.selectedAbilityId && this.hoveredHex && player) {
             
-            // --- ГЛАВНОЕ ИЗМЕНЕНИЕ ---
-            // Вместо MOCK_ABILITY_DATA, мы ищем шаблон в gameState,
-            // который был загружен с сервера.
             const abilityTemplate = this.gameState.abilities.find(
                 (a) => a.templateId === this.selectedAbilityId
             );
     
-            // Если шаблон по какой-то причине не найден, выходим, чтобы не было ошибок.
             if (!abilityTemplate) {
                 return;
             }
     
-            // Берем РАДИУС и ДАЛЬНОСТЬ из загруженного шаблона
             const radius = abilityTemplate.areaOfEffectRadius;
             const range = abilityTemplate.range;
             
-            // Вся остальная логика отрисовки остается прежней
             const distance = hexDistance(player.position, this.hoveredHex);
             const color = distance <= range ? 0x00FF00 : 0xFF0000;
             const hexesToHighlight = getHexesInRange(this.hoveredHex, radius);
@@ -596,7 +566,7 @@ export class GameRenderer {
             this.app.destroy(true, { children: true, texture: true });
             this.app = null;
             this.canvasContainer.innerHTML = '';
-            console.log("GameRenderer destroyed.");
+            //console.log("GameRenderer destroyed.");
         }
     }
 }

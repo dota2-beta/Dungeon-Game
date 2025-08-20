@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useGame } from '../context/GameContext';
 import type { PlayerStateDto } from '../types/dto';
-import HealthBar from './HealthBar';
 import ArmorBar from './ArmorBar';
+import HealthBar from './HealthBar';
 
 const PlayerHUD: React.FC = () => {
     const { gameState } = useGame();

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { useGame } from '../context/GameContext';
 import { publish } from '../api/websocketService';
+import { useGame } from '../context/GameContext';
 import type { InviteToTeamRequest } from '../types/dto';
 
 const PlayerContextMenu: React.FC = () => {
@@ -31,7 +31,7 @@ const PlayerContextMenu: React.FC = () => {
     const handleInvite = () => {
         if (!contextMenu.targetPlayer) return;
         
-        console.log(`Sending team invite to player ${contextMenu.targetPlayer.name}`);
+        //console.log(`Sending team invite to player ${contextMenu.targetPlayer.name}`);
         const payload: InviteToTeamRequest = { targetPlayerId: contextMenu.targetPlayer.id };
         publish(`/app/session/${sessionId}/team/invite`, payload);
         dispatch({ 

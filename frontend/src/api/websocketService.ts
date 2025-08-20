@@ -2,6 +2,7 @@ import { Client, type IFrame, type IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
 export let stompClient: Client | null = null;
+const WEBSOCKET_URL = process.env.REACT_APP_WEBSOCKET_URL || 'http://localhost:8080/gs-websocket';
 
 export const connect = (
     onStompConnectCallback: (frame: IFrame) => void,
@@ -11,9 +12,9 @@ export const connect = (
     if (stompClient?.active) return;
 
     stompClient = new Client({
-        webSocketFactory: () => new SockJS('http://localhost:8080/gs-websocket'),
+        webSocketFactory: () => new SockJS(WEBSOCKET_URL),
         
-        debug: (str) => console.log('STOMP Debug:', str),
+        //debug: (str) => console.log('STOMP Debug:', str),
         reconnectDelay: 5000,
     });
 
@@ -30,7 +31,7 @@ export const connect = (
 export const disconnect = () => {
     if (stompClient?.active) {
         stompClient.deactivate();
-        console.log('WebSocket client deactivated.');
+        //console.log('WebSocket client deactivated.');
     }
     stompClient = null;
 };

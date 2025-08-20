@@ -1,6 +1,6 @@
 import React from 'react';
-import { useGame } from '../context/GameContext';
 import { publish } from '../api/websocketService';
+import { useGame } from '../context/GameContext';
 import type { RespondToTeamRequest } from '../types/dto';
 
 const TeamInviteUI: React.FC = () => {

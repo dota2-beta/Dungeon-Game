@@ -1,6 +1,6 @@
 import React from 'react';
-import { useGame } from '../context/GameContext';
 import { publish } from '../api/websocketService';
+import { useGame } from '../context/GameContext';
 
 const TeamStatusUI: React.FC = () => {
     const { gameState } = useGame();
@@ -20,7 +20,7 @@ const TeamStatusUI: React.FC = () => {
     const teammates = allTeamMembers.filter(e => e.id !== yourPlayerId);
 
     const handleLeaveTeam = () => {
-        console.log("Sending request to leave team...");
+        //console.log("Sending request to leave team...");
         publish(`/app/session/${sessionId}/team/leave`, {});
     };
 
@@ -56,16 +56,14 @@ const TeamStatusUI: React.FC = () => {
                 overflowY: 'auto',
                 flexGrow: 1,
             }}>
-                {/* --- НАЧАЛО ИЗМЕНЕНИЙ --- */}
-                <li style={{ padding: '8px 15px', lineHeight: '1.2' }}> {/* Используем padding и lineHeight */}
+                <li style={{ padding: '8px 15px', lineHeight: '1.2' }}>
                     &#9733; {player.name} (You)
                 </li>
                 {teammates.map(mate => (
-                    <li key={mate.id} style={{ padding: '8px 15px', lineHeight: '1.2' }}> {/* Используем padding и lineHeight */}
+                    <li key={mate.id} style={{ padding: '8px 15px', lineHeight: '1.2' }}>
                         &#128100; {mate.name}
                     </li>
                 ))}
-                 {/* --- КОНЕЦ ИЗМЕНЕНИЙ --- */}
             </ul>
             <button
                 onClick={handleLeaveTeam}

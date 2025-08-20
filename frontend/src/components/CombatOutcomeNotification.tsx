@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useGame } from '../context/GameContext';
-import { CombatOutcome } from '../types/dto';
+import type { CombatOutcome } from '../types/dto';
 
 const CombatOutcomeNotification: React.FC = () => {
     const { gameState, dispatch } = useGame();
@@ -23,14 +23,10 @@ const CombatOutcomeNotification: React.FC = () => {
     
     const getColorForOutcome = (outcome: CombatOutcome) => {
         switch (outcome) {
-            case CombatOutcome.VICTORY:
-                return '#4CAF50';
-            case CombatOutcome.DEFEAT:
-                return '#F44336';
-            case CombatOutcome.END_BY_AGREEMENT:
-                return '#3498db';
-            default:
-                return '#95a5a6';
+            case 'VICTORY': return '#4CAF50';
+            case 'DEFEAT': return '#F44336';
+            case 'END_BY_AGREEMENT': return '#3498db';
+            default: return '#95a5a6';
         }
     };
 

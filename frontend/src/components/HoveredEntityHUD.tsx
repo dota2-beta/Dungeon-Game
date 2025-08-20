@@ -1,8 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { useGame } from '../context/GameContext';
-import HealthBar from './HealthBar';
 import ArmorBar from './ArmorBar';
-import type { EntityStateDto } from '../types/dto';
+import HealthBar from './HealthBar';
 
 const HoveredEntityHUD: React.FC = () => {
     const { gameState } = useGame();

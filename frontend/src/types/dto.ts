@@ -2,25 +2,9 @@
 // Enums (Перечисления)
 // =================================================================
 
-export enum EntityStateType {
-    EXPLORING = 'EXPLORING',
-    COMBAT = 'COMBAT',
-}
-
-export enum TileType {
-    FLOOR = 'FLOOR',
-    WALL = 'WALL',
-    PIT = 'PIT',
-    DOOR = 'DOOR',
-    WATER = 'WATER',
-}
-
-export enum CombatOutcome {
-    VICTORY = 'VICTORY',
-    DEFEAT = 'DEFEAT',
-    IN_PROGRESS = 'IN_PROGRESS',
-    END_BY_AGREEMENT = 'END_BY_AGREEMENT', 
-}
+export type EntityStateType = 'EXPLORING' | 'COMBAT';
+export type TileType = 'FLOOR' | 'WALL' | 'PIT' | 'DOOR' | 'WATER';
+export type CombatOutcome = 'VICTORY' | 'DEFEAT' | 'IN_PROGRESS' | 'END_BY_AGREEMENT';
 
 
 // =================================================================

@@ -10,9 +10,9 @@ import {
     type CombatNextTurnEvent,
     type EntityStateDto,
     type CombatEndedEvent,
-    CombatOutcome,
     type MonsterStateDto,
-    EntityStateType,
+    type CombatOutcome,
+    type EntityStateType,
     type CasterStateUpdatedEvent,
     type AbilityCastedEvent,
     type AbilityStateDto,
@@ -142,9 +142,9 @@ export interface ContextMenuState {
 
 const gameReducer = (state: ExtendedGameSessionState, action: GameAction): ExtendedGameSessionState => {
     if ('payload' in action) {
-        console.log('GameContext Dispatch:', action.type, action.payload);
+        //console.log('GameContext Dispatch:', action.type, action.payload);
     } else {
-        console.log('GameContext Dispatch:', action.type);
+        //console.log('GameContext Dispatch:', action.type);
     }
     switch (action.type) {
         case 'SET_INITIAL_STATE':
@@ -247,24 +247,20 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
 
         case 'COMBAT_PARTICIPANTS_JOINED': {
             const { combatId, participantIds, turnOrder } = action.payload;
-
             const isPlayerJoining = participantIds.includes(state.yourPlayerId);
-            
             if (!isPlayerJoining && state.activeCombat?.combatId !== combatId) {
                 return state;
             }
-
             const updatedEntities = state.entities.map(entity => {
                 if (participantIds.includes(entity.id)) {
                     return {
                         ...entity,
-                        state: EntityStateType.COMBAT,
+                        state: 'COMBAT' as EntityStateType,
                         currentAP: entity.maxAP,
                     };
                 }
                 return entity;
             });
-
             return {
                 ...state,
                 entities: updatedEntities,
@@ -298,32 +294,32 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                 },
                 selectedAbility: null,
             };
-        case 'COMBAT_ENDED': {
-            const { outcome, winningTeamId } = action.payload;
-            let finalMessage: string;
-            
-            if (outcome === CombatOutcome.END_BY_AGREEMENT) {
-                finalMessage = 'Peace Agreed';
-            } 
-            else if (outcome === CombatOutcome.VICTORY) {
-                const player = state.entities.find(e => e.id === state.yourPlayerId);
-                const isWinner = player && winningTeamId && (player.teamId === winningTeamId || player.id === winningTeamId);
-                finalMessage = isWinner ? 'VICTORY!' : 'DEFEAT';
-            } 
-            else {
-                finalMessage = 'DEFEAT';
+            case 'COMBAT_ENDED': {
+                const { outcome, winningTeamId } = action.payload;
+                let finalMessage: string;
+                
+                if (outcome === 'END_BY_AGREEMENT') {
+                    finalMessage = 'Peace Agreed';
+                } 
+                else if (outcome === 'VICTORY') {
+                    const player = state.entities.find(e => e.id === state.yourPlayerId);
+                    const isWinner = player && winningTeamId && (player.teamId === winningTeamId || player.id === winningTeamId);
+                    finalMessage = isWinner ? 'VICTORY!' : 'DEFEAT';
+                } 
+                else {
+                    finalMessage = 'DEFEAT';
+                }
+                
+                const entitiesAfterCombat = state.entities.map(e => e.dead ? e : { ...e, state: 'EXPLORING' as EntityStateType });
+    
+                return {
+                    ...state,
+                    entities: entitiesAfterCombat,
+                    activeCombat: null,
+                    combatOutcomeInfo: { message: finalMessage, outcome: outcome },
+                    activePeaceProposal: null,
+                };
             }
-            
-            const entitiesAfterCombat = state.entities.map(e => e.dead ? e : { ...e, state: EntityStateType.EXPLORING });
-
-            return {
-                ...state,
-                entities: entitiesAfterCombat,
-                activeCombat: null,
-                combatOutcomeInfo: { message: finalMessage, outcome: outcome },
-                activePeaceProposal: null,
-            };
-        }  
         
         case 'CLEAR_COMBAT_OUTCOME':
             return {
@@ -451,7 +447,7 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
             };
         
         case 'SET_ABILITY_TEMPLATES':
-            console.log('[DEBUG] Reducer: Saving ability templates into state.');
+            //console.log('[DEBUG] Reducer: Saving ability templates into state.');
             return {
                 ...state,
                 abilities: action.payload,
@@ -462,7 +458,7 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
             return { ...state, entities: state.entities.filter(e => e.id !== action.payload.entityId) };
 
         case 'ENTITY_TURN_ENDED':
-            console.log(`Turn ended for entity: ${action.payload.currentTurnEntityId}`);
+            //console.log(`Turn ended for entity: ${action.payload.currentTurnEntityId}`);
             return state;
     
         case 'ENTITY_DIED':

@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGame } from '../context/GameContext';
-import { type AbilityStateDto, EntityStateType } from '../types/dto';
+import {
+    type AbilityStateDto
+} from '../types/dto';
 const AbilitySlot: React.FC<{ ability: AbilityStateDto }> = ({ ability }) => {
     const { gameState, dispatch } = useGame();
     const [cooldownText, setCooldownText] = useState('');
@@ -10,7 +12,7 @@ const AbilitySlot: React.FC<{ ability: AbilityStateDto }> = ({ ability }) => {
     );
 
     const player = gameState.entities.find(e => e.id === gameState.yourPlayerId);
-    const isInCombat = player?.state === EntityStateType.COMBAT;
+    const isInCombat = player?.state === 'COMBAT';
     const isMyTurn = gameState.activeCombat?.currentTurnEntityId === player?.id;
 
     useEffect(() => {

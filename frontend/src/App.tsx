@@ -1,46 +1,41 @@
-import React, { useEffect, useState, type FC } from 'react';
-import { connect, subscribe, publish, disconnect } from './api/websocketService';
+import { useEffect, useState, type FC } from 'react';
+import { connect, disconnect, publish, subscribe } from './api/websocketService';
+import AbilityBar from './components/AbilityBar';
+import CombatOutcomeNotification from './components/CombatOutcomeNotification';
+import GameCanvas from './components/GameCanvas';
+import HoveredEntityHUD from './components/HoveredEntityHUD';
+import MainHUD from './components/MainHUD';
+import NotificationUI from './components/NotificationUI';
+import PeaceProposalUI from './components/PeaceProposalUI';
+import PlayerContextMenu from './components/PlayerContextMenu';
+import TeamInviteUI from './components/TeamInviteUI';
+import TeamStatusUI from './components/TeamStatusUI';
+import TurnOrder from './components/TurnOrder';
 import { GameProvider, useGame } from './context/GameContext';
 import type {
-    GameSessionStateDto,
-    GameUpdatePayload,
+    AbilityCastedEvent,
+    AbilityTemplateDto,
+    CasterStateUpdatedEvent,
+    CombatEndedEvent,
+    CombatNextTurnEvent,
+    CombatParticipantsJoinedEvent,
+    CombatStartedEvent,
+    EntityAttackEvent,
+    EntityDiedEvent,
     EntityMovedEvent,
     EntityStatsUpdatedEvent,
-    PlayerJoinedEvent,
-    PlayerLeftEvent,
-    EntityAttackEvent,
+    EntityTurnEndedEvent,
     ErrorEvent,
-    PlayerStateDto,
-    CombatStartedEvent,
-    CombatNextTurnEvent,
-    CombatEndedEvent,
-    CasterStateUpdatedEvent,
-    AbilityCastedEvent,
+    GameSessionStateDto,
+    GameUpdatePayload,
+    JoinRequest,
     PeaceProposalEvent,
     PeaceProposalResultEvent,
-    CombatParticipantsJoinedEvent,
-    TeamUpdatedEvent,
-    TeamInviteEvent,
     PlayerClassTemplateDto,
-    JoinRequest,
-    AbilityTemplateDto,
-    EntityTurnEndedEvent,
-    EntityDiedEvent
+    PlayerLeftEvent,
+    TeamInviteEvent,
+    TeamUpdatedEvent
 } from './types/dto';
-import GameCanvas from './components/GameCanvas';
-import PlayerHUD from './components/PlayerHUD';
-import type { IFrame } from '@stomp/stompjs';
-import TurnOrder from './components/TurnOrder';
-import ActionBar from './components/ActionBar';
-import CombatOutcomeNotification from './components/CombatOutcomeNotification';
-import AbilityBar from './components/AbilityBar';
-import MainHUD from './components/MainHUD';
-import PeaceProposalUI from './components/PeaceProposalUI';
-import NotificationUI from './components/NotificationUI';
-import TeamInviteUI from './components/TeamInviteUI';
-import PlayerContextMenu from './components/PlayerContextMenu';
-import TeamStatusUI from './components/TeamStatusUI';
-import HoveredEntityHUD from './components/HoveredEntityHUD';
 
 const Game: FC = () => {
     const { gameState, dispatch, setErrorMessage } = useGame();
@@ -60,10 +55,12 @@ const Game: FC = () => {
 
     const isLobbyFormInvalid = !nickname || !selectedClassId || availableClasses.length === 0;
 
+    const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+
     useEffect(() => {
         const fetchGameData = async () => {
             try {
-                const classResponse = await fetch('http://localhost:8080/api/game-data/player-classes');
+                const classResponse = await fetch(`${API_BASE_URL}/api/game-data/player-classes`);
                 if (!classResponse.ok) throw new Error('Failed to fetch classes');
                 const classData: PlayerClassTemplateDto[] = await classResponse.json();
                 setAvailableClasses(classData);
@@ -71,7 +68,7 @@ const Game: FC = () => {
                     setSelectedClassId(classData[0].templateId);
                 }
 
-                const abilityResponse = await fetch('http://localhost:8080/api/game-data/abilities');
+                const abilityResponse = await fetch(`${API_BASE_URL}/api/game-data/abilities`);
                 if (!abilityResponse.ok) throw new Error('Failed to fetch abilities');
                 const abilityData: AbilityTemplateDto[] = await abilityResponse.json();
                 dispatch({ type: 'SET_ABILITY_TEMPLATES', payload: abilityData });
@@ -84,7 +81,7 @@ const Game: FC = () => {
     }, [dispatch, setErrorMessage]);
 
     useEffect(() => {
-        const onStompConnect = (frame: IFrame) => {
+        const onStompConnect = () => {
             setIsConnectedToServer(true);
             setErrorMessage('');
 
@@ -111,9 +108,9 @@ const Game: FC = () => {
             subscribe<ErrorEvent>(
                 '/user/queue/errors',
                 (errorPayload) => {
-                    console.error(
-                        `Received error from server. Code: [${errorPayload.errorCode || 'NONE'}], Message: "${errorPayload.message}"`
-                    );
+                    // console.error(
+                    //     `Received error from server. Code: [${errorPayload.errorCode || 'NONE'}], Message: "${errorPayload.message}"`
+                    // );
                     setErrorMessage(errorPayload.message || "An unknown error occurred.");
                 }
             );
@@ -154,8 +151,8 @@ const Game: FC = () => {
             
         };
 
-        const onError = (error: any) => {
-            console.error("Connection error:", error);
+        const onError = () => {
+            //console.error("Connection error:", error);
             setIsConnectedToServer(false);
             setErrorMessage('Failed to connect to the server. Please refresh.');
         };
@@ -170,12 +167,12 @@ const Game: FC = () => {
     useEffect(() => {
         if (!isConnectedToServer || !sessionId) return;
 
-        console.log(`Subscribing to session-specific topics for session: ${sessionId}`);
+        //console.log(`Subscribing to session-specific topics for session: ${sessionId}`);
 
         const initialStateSubscription = subscribe<GameSessionStateDto>(
             `/user/queue/session/${sessionId}/state`, 
             (state) => {
-                console.log('Received initial game state:', state);
+                //console.log('Received initial game state:', state);
                 dispatch({ type: 'SET_INITIAL_STATE', payload: state });
             }
         );
@@ -183,16 +180,16 @@ const Game: FC = () => {
         const updatesSubscription = subscribe<GameUpdatePayload<any>>(
             `/topic/session/${sessionId}/game-updates`, 
             (update) => {
-                console.log(`%c[CLIENT] Received event: ${update.actionType}`, 'color: purple; font-weight: bold;', update.payload);
+                //console.log(`%c[CLIENT] Received event: ${update.actionType}`, 'color: purple; font-weight: bold;', update.payload);
 
                 if (update.actionType === 'entity_moved') {
-                    const payload = update.payload as EntityMovedEvent;
-                    console.log(`%c    Moved entity ${payload.entityId} to new position: (${payload.newPosition.q},${payload.newPosition.r})`, 'color: #2c3e50;');
+                    //const payload = update.payload as EntityMovedEvent;
+                    //console.log(`%c    Moved entity ${payload.entityId} to new position: (${payload.newPosition.q},${payload.newPosition.r})`, 'color: #2c3e50;');
                 }
 
                 if (update.actionType === 'combat_started') {
-                    const payload = update.payload as CombatStartedEvent;
-                    console.log(`%c    Combat has started! ID: ${payload.combatId}. Initial turn order:`, 'color: red; font-weight: bold;', payload.initialTurnOrder);
+                    //const payload = update.payload as CombatStartedEvent;
+                    //console.log(`%c    Combat has started! ID: ${payload.combatId}. Initial turn order:`, 'color: red; font-weight: bold;', payload.initialTurnOrder);
                 }
                 setErrorMessage('');
 
@@ -258,7 +255,7 @@ const Game: FC = () => {
 
     useEffect(() => {
         if (sessionId && isConnectedToServer && nickname && selectedClassId) {
-            console.log(`Sending join request for session ${sessionId} as ${nickname} (${selectedClassId})`);
+            //console.log(`Sending join request for session ${sessionId} as ${nickname} (${selectedClassId})`);
             
             const payload = {
                 sessionId: sessionId,
@@ -272,7 +269,7 @@ const Game: FC = () => {
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
-                console.log('Tab became visible. Requesting state sync.');
+                //console.log('Tab became visible. Requesting state sync.');
                 
                 if (isConnectedToServer && sessionId) {
                     publish(`/app/session/${sessionId}/request-state`, {});

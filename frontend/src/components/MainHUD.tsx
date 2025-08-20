@@ -1,7 +1,7 @@
 import React from 'react';
-import PlayerHUD from './PlayerHUD';
-import ActionBar from './ActionBar';
 import { useGame } from '../context/GameContext';
+import ActionBar from './ActionBar';
+import PlayerHUD from './PlayerHUD';
 
 const MainHUD: React.FC = () => {
     const { gameState } = useGame();
