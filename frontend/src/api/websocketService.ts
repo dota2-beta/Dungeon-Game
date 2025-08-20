@@ -2,7 +2,7 @@ import { Client, type IFrame, type IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
 export let stompClient: Client | null = null;
-const WEBSOCKET_URL = process.env.REACT_APP_WEBSOCKET_URL || 'http://localhost:8080/gs-websocket';
+const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:8080/gs-websocket';
 
 export const connect = (
     onStompConnectCallback: (frame: IFrame) => void,

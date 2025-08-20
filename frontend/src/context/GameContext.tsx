@@ -297,17 +297,27 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
             case 'COMBAT_ENDED': {
                 const { outcome, winningTeamId } = action.payload;
                 let finalMessage: string;
-                
+                let finalOutcome: CombatOutcome; 
+    
                 if (outcome === 'END_BY_AGREEMENT') {
                     finalMessage = 'Peace Agreed';
+                    finalOutcome = 'END_BY_AGREEMENT';
                 } 
                 else if (outcome === 'VICTORY') {
                     const player = state.entities.find(e => e.id === state.yourPlayerId);
                     const isWinner = player && winningTeamId && (player.teamId === winningTeamId || player.id === winningTeamId);
-                    finalMessage = isWinner ? 'VICTORY!' : 'DEFEAT';
+                    
+                    if (isWinner) {
+                        finalMessage = 'VICTORY!';
+                        finalOutcome = 'VICTORY';
+                    } else {
+                        finalMessage = 'DEFEAT';
+                        finalOutcome = 'DEFEAT';
+                    }
                 } 
                 else {
                     finalMessage = 'DEFEAT';
+                    finalOutcome = 'DEFEAT';
                 }
                 
                 const entitiesAfterCombat = state.entities.map(e => e.dead ? e : { ...e, state: 'EXPLORING' as EntityStateType });
@@ -316,7 +326,7 @@ const gameReducer = (state: ExtendedGameSessionState, action: GameAction): Exten
                     ...state,
                     entities: entitiesAfterCombat,
                     activeCombat: null,
-                    combatOutcomeInfo: { message: finalMessage, outcome: outcome },
+                    combatOutcomeInfo: { message: finalMessage, outcome: finalOutcome },
                     activePeaceProposal: null,
                 };
             }
