@@ -1,0 +1,6 @@
+rootProject.name = 'dungeon-crawler'
+
+include 'microservices:gamesession-service'
+include 'microservices:websocket-service'
+include 'shared-contracts:grpc-contracts'
+include 'shared-contracts:event-contracts'

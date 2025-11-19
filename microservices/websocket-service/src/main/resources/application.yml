@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: websocket-service
+  kafka:
+    consumer:
+      bootstrap-servers: localhost:9094
+      group-id: websocket-consumers
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: '*'
+grpc:
+  clients:
+    gamesession-service:
+      address: "localhost:9091"
+server:
+  port: 9090

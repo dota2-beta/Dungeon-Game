@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: gamesession-service
+  kafka:
+    producer:
+      bootstrap-servers: localhost:9094
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+server:
+  port: 9091
+grpc:
+  server:
+    port: ${server.port}

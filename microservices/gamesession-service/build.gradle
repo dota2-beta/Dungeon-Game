@@ -1,0 +1,74 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.7'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.abs.dungeon-crawler'
+version = '0.0.1-SNAPSHOT'
+description = 'gamesession-service'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    grpcVersion = '1.76.0'
+    springGrpcVersion = "0.12.0"
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'org.springframework.grpc:spring-grpc-spring-boot-starter'
+    implementation "io.grpc:grpc-api:${grpcVersion}"
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    runtimeOnly "io.grpc:grpc-netty-shaded:${grpcVersion}"
+    implementation project(':shared-contracts:grpc-contracts')
+    implementation project(':shared-contracts:event-contracts')
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+bootJar {
+    enabled = true
+}
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.grpc:spring-grpc-dependencies:$springGrpcVersion"
+    }
+}
+
+//bootBuildImage {
+//    imageName = "dungeon-game/gamesession-service:${project.version}"
+//
+//    // Указываем builder. gcr.io/paketo-buildpacks/builder-jammy-base - очень надежный и популярный вариант
+//    builder = "gcr.io/paketo-buildpacks/builder-jammy-base:latest"
+//
+//    // Указываем переменные окружения для самого процесса сборки
+//    environment = [
+//            // Явно просим Buildpacks установить Java 21.
+//            // Это более современная LTS-версия, и ссылки на нее точно рабочие.
+//            // Если ваш проект строго требует Java 17, оставьте "17".
+//            "BP_JVM_VERSION" : "17"
+//    ]
+//}
