@@ -1,21 +1,61 @@
 version: '3.8'
 
 services:
-  backend:
-    build: ./backend
-    container_name: dungeon-game-backend
+  postgres:
+    image: postgres:15-alpine
+    container_name: rpg-postgres
     ports:
-      - "8080:8080"
-    restart: unless-stopped
-
-  frontend:
-    build: ./frontend
-    container_name: dungeon-game-frontend
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
+      - "5432:5432"
     environment:
-      - VITE_WEBSOCKET_URL=http://backend:8080/gs-websocket
-      - VITE_API_URL=http://backend:8080
+      POSTGRES_DB: gamedata_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: rpg-redis
+    ports:
+      - "6379:6379"
+
+#  gamesession-service:
+#    build:
+#      context: .
+#      dockerfile: ./microservices/gamesession-service/Dockerfile
+#    ports:
+#      - "9091:9091"
+#    depends_on:
+#      - kafka
+#    environment:
+#      - SERVER_PORT=9091
+#      - SPRING_KAFKA_PRODUCER_BOOTSTRAP_SERVERS=kafka:29092
+#      - GRPC_SERVER_PORT=9091
+#
+#  websocket-service:
+#    build:
+#      context: .
+#      dockerfile: ./microservices/websocket-service/Dockerfile
+#    depends_on:
+#      - kafka
+#      - gamesession-service
+#    ports:
+#      - "9090:9090"
+#    environment:
+#      - SERVER_PORT=9090
+#      - SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS=kafka:29092
+#      - GRPC_CLIENTS_GAMESESSION-SERVICE_ADDRESS=gamesession-service:9091
+
+#  frontend:
+#    build: ./frontend
+#    container_name: dungeon-game-frontend
+#    ports:
+#      - "3000:80"
+#    depends_on:
+#      - backend
+#    restart: unless-stopped
+#    environment:
+#      - VITE_WEBSOCKET_URL=http://backend:8080/gs-websocket
+#      - VITE_API_URL=http://backend:8080
+volumes:
+  postgres_data:

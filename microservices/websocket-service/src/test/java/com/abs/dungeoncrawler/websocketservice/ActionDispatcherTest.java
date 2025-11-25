@@ -30,28 +30,58 @@ public class ActionDispatcherTest {
     @Test
     void whenDispatchJoinSession_ThenGrpcClientIsCalledWithCorrectData() {
         //arrange
+        String sessionId = "testSessionId";
+        String wsSessionId = "testWsSessionId";
+        String userId = "testUserId";
         JoinRequestDto joinRequestDto = JoinRequestDto.builder()
-                .sessionId("testSessionId")
+                .sessionId(sessionId)
                 .templateId("testTemplateId")
                 .username("testUsername")
                 .build();
         Principal principal = Mockito.mock(Principal.class);
-        String wsSessionId = "testWsSessionId";
+
         JoinResponse successfulResponse = JoinResponse.newBuilder()
                 .setSuccess(true)
                 .build();
 
-        Mockito.when(principal.getName()).thenReturn("testUserId");
+        Mockito.when(principal.getName()).thenReturn(userId);
         Mockito.when(gameSessionClient.joinSession(any())).thenReturn(successfulResponse);
         //act
         dispatcher.dispatchJoinSession(joinRequestDto, principal, wsSessionId);
         //assert
         ArgumentCaptor<JoinRequest> captor = ArgumentCaptor.forClass(JoinRequest.class);
         Mockito.verify(gameSessionClient, Mockito.times(1)).joinSession(captor.capture());
+        Mockito.verify(connectionRegistry, Mockito.times(1)).register(wsSessionId, userId, sessionId);
+
         JoinRequest grpcRequest = captor.getValue();
         assertEquals(joinRequestDto.getSessionId(), grpcRequest.getSessionId());
         assertEquals(joinRequestDto.getTemplateId(), grpcRequest.getTemplateId());
         assertEquals(joinRequestDto.getUsername(), grpcRequest.getUsername());
         assertEquals(principal.getName(), grpcRequest.getUserId());
+    }
+
+    @Test
+    void shouldNotRegisterUser_whenGrpcReturnsFailure() {
+        //arrange
+        String sessionId = "testSessionId";
+        String wsSessionId = "testWsSessionId";
+        String userId = "testUserId";
+        JoinRequestDto joinRequestDto = JoinRequestDto.builder()
+                .sessionId(sessionId)
+                .templateId("testTemplateId")
+                .username("testUsername")
+                .build();
+        Principal principal = Mockito.mock(Principal.class);
+
+        JoinResponse successfulResponse = JoinResponse.newBuilder()
+                .setSuccess(false)
+                .build();
+
+        Mockito.when(principal.getName()).thenReturn(userId);
+        Mockito.when(gameSessionClient.joinSession(any())).thenReturn(successfulResponse);
+        //act
+        dispatcher.dispatchJoinSession(joinRequestDto, principal, wsSessionId);
+        //assert
+        Mockito.verify(connectionRegistry, Mockito.times(0)).register(wsSessionId, userId, sessionId);
     }
 }

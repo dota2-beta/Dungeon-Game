@@ -12,6 +12,7 @@ spring:
 grpc:
   clients:
     gamesession-service:
-      address: "localhost:9091"
+      host: "localhost"
+      port: "9091"
 server:
   port: 9090

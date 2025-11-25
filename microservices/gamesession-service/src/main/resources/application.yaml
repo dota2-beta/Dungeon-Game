@@ -11,3 +11,7 @@ server:
 grpc:
   server:
     port: ${server.port}
+  clients:
+    gamedata-service:
+      host: "localhost"
+      port: "9092"

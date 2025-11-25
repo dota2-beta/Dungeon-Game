@@ -4,20 +4,21 @@ import com.dungeoncrawler.contracts.grpc.gamesession.GameSessionServiceGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @RequiredArgsConstructor
 public class GrpcClientConfig {
-    private final GrpcClientsProperties grpcClientsProperties;
+    @Value("${grpc.clients.gamesession-service.host}")
+    private String host;
+    @Value("${grpc.clients.gamesession-service.port}")
+    private String port;
 
     @Bean
     public GameSessionServiceGrpc.GameSessionServiceBlockingStub getGameSessionServiceBlockingStub() {
-        String address = grpcClientsProperties.getClients().get("gamesession-service").getAddress();
-        String[] parts = address.split(":");
-        String host = parts[0];
-        int port = Integer.parseInt(parts[1]);
+        int port = Integer.parseInt(this.port);
         ManagedChannel channel = ManagedChannelBuilder
                 .forAddress(host, port)
                 .usePlaintext()

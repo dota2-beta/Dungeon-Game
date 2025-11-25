@@ -54,3 +54,13 @@ tasks.named('test') {
 bootJar {
     enabled = true // Убеждаемся, что Spring Boot собирает исполняемый JAR
 }
+
+//test {
+//    useJUnitPlatform()
+//
+//    dependsOn ':microservices:gamesession-service:bootJar'
+//
+//    testLogging {
+//        showStandardStreams = true
+//    }
+//}

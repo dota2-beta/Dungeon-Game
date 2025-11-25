@@ -1,0 +1,58 @@
+player-classes:
+  - templateId: "warrior"
+    name: "Warrior"
+    description: "A stalwart fighter who excels in close combat."
+    abilities:
+      - "strong blow"
+    stats:
+      maxHp: 150
+      attack: 12
+      defense: 80
+      initiative: 10
+      maxAP: 8
+      attackRange: 1
+      aggroRadius: -1
+
+  - templateId: "Healer"
+    name: "Healer"
+    description: "A master of restorative magic who mends allies' wounds and keeps the party alive."
+    abilities:
+      - "lesser_heal"
+    stats:
+      maxHp: 110
+      attack: 10
+      defense: 40
+      initiative: 15
+      maxAP: 8
+      attackRange: 3
+      aggroRadius: -1
+
+  - templateId: "Archer"
+    name: "Archer"
+    description: "A peerless marksman who strikes down foes from a great distance."
+    abilities:
+      - "powershot"
+    stats:
+      maxHp: 120
+      attack: 10
+      defense: 40
+      initiative: 15
+      maxAP: 8
+      attackRange: 5
+      aggroRadius: -1
+
+
+  - templateId: "mage"
+    name: "Mage"
+    description: "A powerful mage who commands arcane energies from a distance."
+    abilities:
+      - "fireball"
+      - "lesser_heal"
+    stats:
+      maxHp: 90
+      attack: 5
+      defense: 30
+      initiative: 12
+      maxAP: 9
+      attackRange: 3
+      aggroRadius: -1

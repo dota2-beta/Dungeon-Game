@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package gameDataService;
+
+option java_multiple_files = true;
+option java_package = "com.dungeoncrawler.contracts.grpc.gamedata";
+
+service GameDataService {
+  rpc GetPlayerTemplate(PlayerTemplateGrpcRequest) returns (PlayerTemplateGrpcResponse);
+}
+
+message PlayerTemplateGrpcRequest {
+  string template_id = 1;
+}
+
+message PlayerTemplateGrpcResponse {
+  string template_id = 1;
+  string name = 2;
+  string description = 3;
+  repeated string abilities = 4;
+  Stats stats = 5;
+}
+
+message Stats {
+  int32 max_hp = 1;
+  int32 attack = 2;
+  int32 defense = 3;
+  int32 initiative = 4;
+  int32 max_ap = 5;
+  int32 attack_range = 6;
+  int32 aggro_radius = 7;
+}
