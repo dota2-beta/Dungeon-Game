@@ -12,35 +12,97 @@ public final class GameDataServiceGrpc {
   public static final java.lang.String SERVICE_NAME = "gameDataService.GameDataService";
 
   // Static method descriptors that strictly reflect the proto.
-  private static volatile io.grpc.MethodDescriptor<com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcRequest,
-      com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcResponse> getGetPlayerTemplateMethod;
+  private static volatile io.grpc.MethodDescriptor<com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcRequest,
+      com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcResponse> getGetEntityTemplateMethod;
 
   @io.grpc.stub.annotations.RpcMethod(
-      fullMethodName = SERVICE_NAME + '/' + "GetPlayerTemplate",
-      requestType = com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcRequest.class,
-      responseType = com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcResponse.class,
+      fullMethodName = SERVICE_NAME + '/' + "GetEntityTemplate",
+      requestType = com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcRequest.class,
+      responseType = com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcResponse.class,
       methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
-  public static io.grpc.MethodDescriptor<com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcRequest,
-      com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcResponse> getGetPlayerTemplateMethod() {
-    io.grpc.MethodDescriptor<com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcRequest, com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcResponse> getGetPlayerTemplateMethod;
-    if ((getGetPlayerTemplateMethod = GameDataServiceGrpc.getGetPlayerTemplateMethod) == null) {
+  public static io.grpc.MethodDescriptor<com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcRequest,
+      com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcResponse> getGetEntityTemplateMethod() {
+    io.grpc.MethodDescriptor<com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcRequest, com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcResponse> getGetEntityTemplateMethod;
+    if ((getGetEntityTemplateMethod = GameDataServiceGrpc.getGetEntityTemplateMethod) == null) {
       synchronized (GameDataServiceGrpc.class) {
-        if ((getGetPlayerTemplateMethod = GameDataServiceGrpc.getGetPlayerTemplateMethod) == null) {
-          GameDataServiceGrpc.getGetPlayerTemplateMethod = getGetPlayerTemplateMethod =
-              io.grpc.MethodDescriptor.<com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcRequest, com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcResponse>newBuilder()
+        if ((getGetEntityTemplateMethod = GameDataServiceGrpc.getGetEntityTemplateMethod) == null) {
+          GameDataServiceGrpc.getGetEntityTemplateMethod = getGetEntityTemplateMethod =
+              io.grpc.MethodDescriptor.<com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcRequest, com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcResponse>newBuilder()
               .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "GetPlayerTemplate"))
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "GetEntityTemplate"))
               .setSampledToLocalTracing(true)
               .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcRequest.getDefaultInstance()))
+                  com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcRequest.getDefaultInstance()))
               .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcResponse.getDefaultInstance()))
-              .setSchemaDescriptor(new GameDataServiceMethodDescriptorSupplier("GetPlayerTemplate"))
+                  com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new GameDataServiceMethodDescriptorSupplier("GetEntityTemplate"))
               .build();
         }
       }
     }
-    return getGetPlayerTemplateMethod;
+    return getGetEntityTemplateMethod;
+  }
+
+  private static volatile io.grpc.MethodDescriptor<com.dungeoncrawler.contracts.grpc.gamedata.GameMapRequest,
+      com.dungeoncrawler.contracts.grpc.gamedata.GameMapResponse> getGetGameMapMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "GetGameMap",
+      requestType = com.dungeoncrawler.contracts.grpc.gamedata.GameMapRequest.class,
+      responseType = com.dungeoncrawler.contracts.grpc.gamedata.GameMapResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
+  public static io.grpc.MethodDescriptor<com.dungeoncrawler.contracts.grpc.gamedata.GameMapRequest,
+      com.dungeoncrawler.contracts.grpc.gamedata.GameMapResponse> getGetGameMapMethod() {
+    io.grpc.MethodDescriptor<com.dungeoncrawler.contracts.grpc.gamedata.GameMapRequest, com.dungeoncrawler.contracts.grpc.gamedata.GameMapResponse> getGetGameMapMethod;
+    if ((getGetGameMapMethod = GameDataServiceGrpc.getGetGameMapMethod) == null) {
+      synchronized (GameDataServiceGrpc.class) {
+        if ((getGetGameMapMethod = GameDataServiceGrpc.getGetGameMapMethod) == null) {
+          GameDataServiceGrpc.getGetGameMapMethod = getGetGameMapMethod =
+              io.grpc.MethodDescriptor.<com.dungeoncrawler.contracts.grpc.gamedata.GameMapRequest, com.dungeoncrawler.contracts.grpc.gamedata.GameMapResponse>newBuilder()
+              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "GetGameMap"))
+              .setSampledToLocalTracing(true)
+              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  com.dungeoncrawler.contracts.grpc.gamedata.GameMapRequest.getDefaultInstance()))
+              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  com.dungeoncrawler.contracts.grpc.gamedata.GameMapResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new GameDataServiceMethodDescriptorSupplier("GetGameMap"))
+              .build();
+        }
+      }
+    }
+    return getGetGameMapMethod;
+  }
+
+  private static volatile io.grpc.MethodDescriptor<com.google.protobuf.Empty,
+      com.dungeoncrawler.contracts.grpc.common.PlayerClassListResponse> getGetPlayerClassesMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "GetPlayerClasses",
+      requestType = com.google.protobuf.Empty.class,
+      responseType = com.dungeoncrawler.contracts.grpc.common.PlayerClassListResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
+  public static io.grpc.MethodDescriptor<com.google.protobuf.Empty,
+      com.dungeoncrawler.contracts.grpc.common.PlayerClassListResponse> getGetPlayerClassesMethod() {
+    io.grpc.MethodDescriptor<com.google.protobuf.Empty, com.dungeoncrawler.contracts.grpc.common.PlayerClassListResponse> getGetPlayerClassesMethod;
+    if ((getGetPlayerClassesMethod = GameDataServiceGrpc.getGetPlayerClassesMethod) == null) {
+      synchronized (GameDataServiceGrpc.class) {
+        if ((getGetPlayerClassesMethod = GameDataServiceGrpc.getGetPlayerClassesMethod) == null) {
+          GameDataServiceGrpc.getGetPlayerClassesMethod = getGetPlayerClassesMethod =
+              io.grpc.MethodDescriptor.<com.google.protobuf.Empty, com.dungeoncrawler.contracts.grpc.common.PlayerClassListResponse>newBuilder()
+              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "GetPlayerClasses"))
+              .setSampledToLocalTracing(true)
+              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  com.google.protobuf.Empty.getDefaultInstance()))
+              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  com.dungeoncrawler.contracts.grpc.common.PlayerClassListResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new GameDataServiceMethodDescriptorSupplier("GetPlayerClasses"))
+              .build();
+        }
+      }
+    }
+    return getGetPlayerClassesMethod;
   }
 
   /**
@@ -108,9 +170,23 @@ public final class GameDataServiceGrpc {
 
     /**
      */
-    default void getPlayerTemplate(com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcRequest request,
-        io.grpc.stub.StreamObserver<com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcResponse> responseObserver) {
-      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getGetPlayerTemplateMethod(), responseObserver);
+    default void getEntityTemplate(com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcRequest request,
+        io.grpc.stub.StreamObserver<com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getGetEntityTemplateMethod(), responseObserver);
+    }
+
+    /**
+     */
+    default void getGameMap(com.dungeoncrawler.contracts.grpc.gamedata.GameMapRequest request,
+        io.grpc.stub.StreamObserver<com.dungeoncrawler.contracts.grpc.gamedata.GameMapResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getGetGameMapMethod(), responseObserver);
+    }
+
+    /**
+     */
+    default void getPlayerClasses(com.google.protobuf.Empty request,
+        io.grpc.stub.StreamObserver<com.dungeoncrawler.contracts.grpc.common.PlayerClassListResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getGetPlayerClassesMethod(), responseObserver);
     }
   }
 
@@ -143,10 +219,26 @@ public final class GameDataServiceGrpc {
 
     /**
      */
-    public void getPlayerTemplate(com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcRequest request,
-        io.grpc.stub.StreamObserver<com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcResponse> responseObserver) {
+    public void getEntityTemplate(com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcRequest request,
+        io.grpc.stub.StreamObserver<com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcResponse> responseObserver) {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
-          getChannel().newCall(getGetPlayerTemplateMethod(), getCallOptions()), request, responseObserver);
+          getChannel().newCall(getGetEntityTemplateMethod(), getCallOptions()), request, responseObserver);
+    }
+
+    /**
+     */
+    public void getGameMap(com.dungeoncrawler.contracts.grpc.gamedata.GameMapRequest request,
+        io.grpc.stub.StreamObserver<com.dungeoncrawler.contracts.grpc.gamedata.GameMapResponse> responseObserver) {
+      io.grpc.stub.ClientCalls.asyncUnaryCall(
+          getChannel().newCall(getGetGameMapMethod(), getCallOptions()), request, responseObserver);
+    }
+
+    /**
+     */
+    public void getPlayerClasses(com.google.protobuf.Empty request,
+        io.grpc.stub.StreamObserver<com.dungeoncrawler.contracts.grpc.common.PlayerClassListResponse> responseObserver) {
+      io.grpc.stub.ClientCalls.asyncUnaryCall(
+          getChannel().newCall(getGetPlayerClassesMethod(), getCallOptions()), request, responseObserver);
     }
   }
 
@@ -168,9 +260,23 @@ public final class GameDataServiceGrpc {
 
     /**
      */
-    public com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcResponse getPlayerTemplate(com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcRequest request) throws io.grpc.StatusException {
+    public com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcResponse getEntityTemplate(com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcRequest request) throws io.grpc.StatusException {
       return io.grpc.stub.ClientCalls.blockingV2UnaryCall(
-          getChannel(), getGetPlayerTemplateMethod(), getCallOptions(), request);
+          getChannel(), getGetEntityTemplateMethod(), getCallOptions(), request);
+    }
+
+    /**
+     */
+    public com.dungeoncrawler.contracts.grpc.gamedata.GameMapResponse getGameMap(com.dungeoncrawler.contracts.grpc.gamedata.GameMapRequest request) throws io.grpc.StatusException {
+      return io.grpc.stub.ClientCalls.blockingV2UnaryCall(
+          getChannel(), getGetGameMapMethod(), getCallOptions(), request);
+    }
+
+    /**
+     */
+    public com.dungeoncrawler.contracts.grpc.common.PlayerClassListResponse getPlayerClasses(com.google.protobuf.Empty request) throws io.grpc.StatusException {
+      return io.grpc.stub.ClientCalls.blockingV2UnaryCall(
+          getChannel(), getGetPlayerClassesMethod(), getCallOptions(), request);
     }
   }
 
@@ -192,9 +298,23 @@ public final class GameDataServiceGrpc {
 
     /**
      */
-    public com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcResponse getPlayerTemplate(com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcRequest request) {
+    public com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcResponse getEntityTemplate(com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
-          getChannel(), getGetPlayerTemplateMethod(), getCallOptions(), request);
+          getChannel(), getGetEntityTemplateMethod(), getCallOptions(), request);
+    }
+
+    /**
+     */
+    public com.dungeoncrawler.contracts.grpc.gamedata.GameMapResponse getGameMap(com.dungeoncrawler.contracts.grpc.gamedata.GameMapRequest request) {
+      return io.grpc.stub.ClientCalls.blockingUnaryCall(
+          getChannel(), getGetGameMapMethod(), getCallOptions(), request);
+    }
+
+    /**
+     */
+    public com.dungeoncrawler.contracts.grpc.common.PlayerClassListResponse getPlayerClasses(com.google.protobuf.Empty request) {
+      return io.grpc.stub.ClientCalls.blockingUnaryCall(
+          getChannel(), getGetPlayerClassesMethod(), getCallOptions(), request);
     }
   }
 
@@ -216,14 +336,32 @@ public final class GameDataServiceGrpc {
 
     /**
      */
-    public com.google.common.util.concurrent.ListenableFuture<com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcResponse> getPlayerTemplate(
-        com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcRequest request) {
+    public com.google.common.util.concurrent.ListenableFuture<com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcResponse> getEntityTemplate(
+        com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcRequest request) {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
-          getChannel().newCall(getGetPlayerTemplateMethod(), getCallOptions()), request);
+          getChannel().newCall(getGetEntityTemplateMethod(), getCallOptions()), request);
+    }
+
+    /**
+     */
+    public com.google.common.util.concurrent.ListenableFuture<com.dungeoncrawler.contracts.grpc.gamedata.GameMapResponse> getGameMap(
+        com.dungeoncrawler.contracts.grpc.gamedata.GameMapRequest request) {
+      return io.grpc.stub.ClientCalls.futureUnaryCall(
+          getChannel().newCall(getGetGameMapMethod(), getCallOptions()), request);
+    }
+
+    /**
+     */
+    public com.google.common.util.concurrent.ListenableFuture<com.dungeoncrawler.contracts.grpc.common.PlayerClassListResponse> getPlayerClasses(
+        com.google.protobuf.Empty request) {
+      return io.grpc.stub.ClientCalls.futureUnaryCall(
+          getChannel().newCall(getGetPlayerClassesMethod(), getCallOptions()), request);
     }
   }
 
-  private static final int METHODID_GET_PLAYER_TEMPLATE = 0;
+  private static final int METHODID_GET_ENTITY_TEMPLATE = 0;
+  private static final int METHODID_GET_GAME_MAP = 1;
+  private static final int METHODID_GET_PLAYER_CLASSES = 2;
 
   private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
@@ -242,9 +380,17 @@ public final class GameDataServiceGrpc {
     @java.lang.SuppressWarnings("unchecked")
     public void invoke(Req request, io.grpc.stub.StreamObserver<Resp> responseObserver) {
       switch (methodId) {
-        case METHODID_GET_PLAYER_TEMPLATE:
-          serviceImpl.getPlayerTemplate((com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcRequest) request,
-              (io.grpc.stub.StreamObserver<com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcResponse>) responseObserver);
+        case METHODID_GET_ENTITY_TEMPLATE:
+          serviceImpl.getEntityTemplate((com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcRequest) request,
+              (io.grpc.stub.StreamObserver<com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcResponse>) responseObserver);
+          break;
+        case METHODID_GET_GAME_MAP:
+          serviceImpl.getGameMap((com.dungeoncrawler.contracts.grpc.gamedata.GameMapRequest) request,
+              (io.grpc.stub.StreamObserver<com.dungeoncrawler.contracts.grpc.gamedata.GameMapResponse>) responseObserver);
+          break;
+        case METHODID_GET_PLAYER_CLASSES:
+          serviceImpl.getPlayerClasses((com.google.protobuf.Empty) request,
+              (io.grpc.stub.StreamObserver<com.dungeoncrawler.contracts.grpc.common.PlayerClassListResponse>) responseObserver);
           break;
         default:
           throw new AssertionError();
@@ -265,12 +411,26 @@ public final class GameDataServiceGrpc {
   public static final io.grpc.ServerServiceDefinition bindService(AsyncService service) {
     return io.grpc.ServerServiceDefinition.builder(getServiceDescriptor())
         .addMethod(
-          getGetPlayerTemplateMethod(),
+          getGetEntityTemplateMethod(),
           io.grpc.stub.ServerCalls.asyncUnaryCall(
             new MethodHandlers<
-              com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcRequest,
-              com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcResponse>(
-                service, METHODID_GET_PLAYER_TEMPLATE)))
+              com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcRequest,
+              com.dungeoncrawler.contracts.grpc.gamedata.EntityTemplateGrpcResponse>(
+                service, METHODID_GET_ENTITY_TEMPLATE)))
+        .addMethod(
+          getGetGameMapMethod(),
+          io.grpc.stub.ServerCalls.asyncUnaryCall(
+            new MethodHandlers<
+              com.dungeoncrawler.contracts.grpc.gamedata.GameMapRequest,
+              com.dungeoncrawler.contracts.grpc.gamedata.GameMapResponse>(
+                service, METHODID_GET_GAME_MAP)))
+        .addMethod(
+          getGetPlayerClassesMethod(),
+          io.grpc.stub.ServerCalls.asyncUnaryCall(
+            new MethodHandlers<
+              com.google.protobuf.Empty,
+              com.dungeoncrawler.contracts.grpc.common.PlayerClassListResponse>(
+                service, METHODID_GET_PLAYER_CLASSES)))
         .build();
   }
 
@@ -319,7 +479,9 @@ public final class GameDataServiceGrpc {
         if (result == null) {
           serviceDescriptor = result = io.grpc.ServiceDescriptor.newBuilder(SERVICE_NAME)
               .setSchemaDescriptor(new GameDataServiceFileDescriptorSupplier())
-              .addMethod(getGetPlayerTemplateMethod())
+              .addMethod(getGetEntityTemplateMethod())
+              .addMethod(getGetGameMapMethod())
+              .addMethod(getGetPlayerClassesMethod())
               .build();
         }
       }

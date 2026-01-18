@@ -1,7 +1,8 @@
-player-classes:
+entity-classes:
   - templateId: "warrior"
     name: "Warrior"
     description: "A stalwart fighter who excels in close combat."
+    type: "player"
     abilities:
       - "strong blow"
     stats:
@@ -13,23 +14,25 @@ player-classes:
       attackRange: 1
       aggroRadius: -1
 
-  - templateId: "Healer"
-    name: "Healer"
-    description: "A master of restorative magic who mends allies' wounds and keeps the party alive."
-    abilities:
-      - "lesser_heal"
-    stats:
-      maxHp: 110
-      attack: 10
-      defense: 40
-      initiative: 15
-      maxAP: 8
-      attackRange: 3
-      aggroRadius: -1
+#  - templateId: "Healer"
+#    name: "Healer"
+#    description: "A master of restorative magic who mends allies' wounds and keeps the party alive."
+#    type: "player"
+#    abilities:
+#      - "lesser_heal"
+#    stats:
+#      maxHp: 110
+#      attack: 10
+#      defense: 40
+#      initiative: 15
+#      maxAP: 8
+#      attackRange: 3
+#      aggroRadius: -1
 
   - templateId: "Archer"
     name: "Archer"
     description: "A peerless marksman who strikes down foes from a great distance."
+    type: "player"
     abilities:
       - "powershot"
     stats:
@@ -42,17 +45,18 @@ player-classes:
       aggroRadius: -1
 
 
-  - templateId: "mage"
-    name: "Mage"
-    description: "A powerful mage who commands arcane energies from a distance."
-    abilities:
-      - "fireball"
-      - "lesser_heal"
-    stats:
-      maxHp: 90
-      attack: 5
-      defense: 30
-      initiative: 12
-      maxAP: 9
-      attackRange: 3
-      aggroRadius: -1
+#  - templateId: "mage"
+#    name: "Mage"
+#    description: "A powerful mage who commands arcane energies from a distance."
+#    type: "player"
+#    abilities:
+#      - "fireball"
+#      - "lesser_heal"
+#    stats:
+#      maxHp: 90
+#      attack: 5
+#      defense: 30
+#      initiative: 12
+#      maxAP: 9
+#      attackRange: 3
+#      aggroRadius: -1

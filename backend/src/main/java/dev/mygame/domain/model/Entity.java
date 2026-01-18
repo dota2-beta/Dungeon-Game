@@ -35,7 +35,6 @@ public abstract class Entity extends GameMapObject {
     private List<AbilityInstance> abilities;
 
     private String teamId; // Id команды, к которой принадлежит Entity
-    private String websocketSessionId;
 
     private EntityStateType state;
 

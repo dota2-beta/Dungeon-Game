@@ -2,31 +2,42 @@ syntax = "proto3";
 
 package gameDataService;
 
+import "common.proto";
+import "google/protobuf/empty.proto";
+
 option java_multiple_files = true;
 option java_package = "com.dungeoncrawler.contracts.grpc.gamedata";
 
 service GameDataService {
-  rpc GetPlayerTemplate(PlayerTemplateGrpcRequest) returns (PlayerTemplateGrpcResponse);
+  rpc GetEntityTemplate(EntityTemplateGrpcRequest) returns (EntityTemplateGrpcResponse);
+  rpc GetGameMap(GameMapRequest) returns (GameMapResponse);
+  rpc GetPlayerClasses(google.protobuf.Empty) returns (common.PlayerClassListResponse);
 }
 
-message PlayerTemplateGrpcRequest {
+message EntityTemplateGrpcRequest {
   string template_id = 1;
 }
 
-message PlayerTemplateGrpcResponse {
+message EntityTemplateGrpcResponse {
   string template_id = 1;
   string name = 2;
-  string description = 3;
-  repeated string abilities = 4;
-  Stats stats = 5;
+  string type = 3;
+  string description = 4;
+  repeated string abilities = 5;
+  common.Stats stats = 6;
 }
 
-message Stats {
-  int32 max_hp = 1;
-  int32 attack = 2;
-  int32 defense = 3;
-  int32 initiative = 4;
-  int32 max_ap = 5;
-  int32 attack_range = 6;
-  int32 aggro_radius = 7;
+message SpawnPointInfoMsg {
+  common.HexMsg coordinate = 1;
+  string templateId = 2;
+}
+
+message GameMapRequest {
+  string level = 1;
+}
+
+message GameMapResponse {
+  repeated common.TileMsg tiles = 1;
+  repeated SpawnPointInfoMsg playerSpawnPoints = 2;
+  repeated SpawnPointInfoMsg monsterSpawnPoints = 3;
 }

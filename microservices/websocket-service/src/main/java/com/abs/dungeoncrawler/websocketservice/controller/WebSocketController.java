@@ -1,9 +1,16 @@
 package com.abs.dungeoncrawler.websocketservice.controller;
 
+import com.abs.dungeoncrawler.websocketservice.dto.ProposePeaceRequestDto;
+import com.abs.dungeoncrawler.websocketservice.dto.RespondToPeaceRequestDto;
+import com.abs.dungeonCrawler.eventcontracts.requestDto.AttackRequestDto;
+import com.abs.dungeonCrawler.eventcontracts.requestDto.EndTurnRequestDto;
+import com.abs.dungeonCrawler.eventcontracts.requestDto.MoveRequestDto;
 import com.abs.dungeoncrawler.websocketservice.ActionDispatcher;
+import com.abs.dungeoncrawler.websocketservice.dto.CreateSessionRequestDto;
 import com.abs.dungeoncrawler.websocketservice.dto.JoinRequestDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
@@ -18,10 +25,69 @@ public class WebSocketController {
     private final ActionDispatcher actionDispatcher;
 
     @MessageMapping("/join-session")
-    public void onJoinSession(@Payload JoinRequestDto joinRequest, SimpMessageHeaderAccessor headerAccessor, Principal principal) {
+    public void onJoinSession(@Payload JoinRequestDto joinRequest,
+                              SimpMessageHeaderAccessor headerAccessor,
+                              Principal principal) {
         String websocketSessionId = headerAccessor.getSessionId();
         actionDispatcher.dispatchJoinSession(joinRequest, principal, websocketSessionId);
         //gameSessionManager.joinPlayer(joinRequest, userId, sessionId, websocketSessionId);
+    }
+
+    @MessageMapping("/create-session")
+    public void onCreateSession(@Payload CreateSessionRequestDto createRequest,
+                                SimpMessageHeaderAccessor headerAccessor,
+                                Principal principal) {
+        String websocketSessionId = headerAccessor.getSessionId();
+        actionDispatcher.dispatchCreateSession(createRequest, principal, websocketSessionId);
+    }
+
+    @MessageMapping("/session/{sessionId}/move")
+    public void onPlayerMoveAction(@Payload MoveRequestDto moveRequest,
+                                   SimpMessageHeaderAccessor headerAccessor,
+                                   Principal principal) {
+        String websocketSessionId = headerAccessor.getSessionId();
+        actionDispatcher.dispatchMoveRequest(moveRequest, principal, websocketSessionId);
+    }
+
+    @MessageMapping("/session/{sessionId}/attack")
+    public void onPlayerAttackAction(@Payload AttackRequestDto attackRequest,
+                                     SimpMessageHeaderAccessor headerAccessor,
+                                     Principal principal) {
+        String websocketSessionId = headerAccessor.getSessionId();
+        actionDispatcher.dispatchAttackRequest(attackRequest, principal, websocketSessionId);
+    }
+
+    @MessageMapping("/session/{sessionId}/endTurn")
+    public void onPlayerEndTurnAction(@Payload EndTurnRequestDto endTurnRequest,
+                                      SimpMessageHeaderAccessor headerAccessor,
+                                      Principal principal) {
+        String websocketSessionId = headerAccessor.getSessionId();
+        actionDispatcher.dispatchEndTurnRequest(endTurnRequest, principal, websocketSessionId);
+    }
+
+    @MessageMapping("/session/{sessionId}/state")
+    public void onGetSessionState(@DestinationVariable String sessionId,
+                                  Principal principal) {
+        actionDispatcher.dispatchGetState(sessionId, principal.getName());
+    }
+
+    @MessageMapping("/get-classes")
+    public void onGetClasses(Principal principal) {
+        actionDispatcher.dispatchGetClasses(principal);
+    }
+
+    @MessageMapping("/session/{sessionId}/combat/propose-peace")
+    public void onProposePeace(@Payload ProposePeaceRequestDto request,
+                               SimpMessageHeaderAccessor headerAccessor,
+                               Principal principal) {
+        String websocketSessionId = headerAccessor.getSessionId();
+        actionDispatcher.dispatchProposePeace(request.getSessionId(), principal.getName());
+    }
+
+    @MessageMapping("/session/{sessionId}/combat/respond-peace")
+    public void onRespondToPeace(@Payload RespondToPeaceRequestDto request,
+                                 Principal principal) {
+        actionDispatcher.dispatchRespondToPeace(request.getSessionId(), principal.getName(), request.isAccept());
     }
 
 //    @MessageMapping("/session/{sessionId}/action")

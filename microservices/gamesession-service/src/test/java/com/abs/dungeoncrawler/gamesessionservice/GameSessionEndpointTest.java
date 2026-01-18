@@ -2,8 +2,8 @@ package com.abs.dungeoncrawler.gamesessionservice;
 
 import com.abs.dungeoncrawler.gamesessionservice.services.SessionLifecycleManager;
 import com.dungeoncrawler.contracts.grpc.gamesession.GameSessionServiceGrpc;
-import com.dungeoncrawler.contracts.grpc.gamesession.JoinRequest;
-import com.dungeoncrawler.contracts.grpc.gamesession.JoinResponse;
+import com.dungeoncrawler.contracts.grpc.gamesession.GrpcJoinRequest;
+import com.dungeoncrawler.contracts.grpc.gamesession.GrpcJoinResponse;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import org.junit.jupiter.api.AfterEach;
@@ -52,18 +52,18 @@ public class GameSessionEndpointTest {
     @Test
     void shouldReceiveAndProcessJoinRequest() {
         //arrange
-        JoinRequest joinRequest = JoinRequest.newBuilder()
+        GrpcJoinRequest joinRequest = GrpcJoinRequest.newBuilder()
                 .setSessionId("testSessionId")
                 .setTemplateId("testTemplateId")
                 .setUsername("testUsername")
                 .setUserId("testUserId")
                 .build();
-        JoinResponse response = JoinResponse.newBuilder()
+        GrpcJoinResponse response = GrpcJoinResponse.newBuilder()
                 .setSuccess(true)
                 .build();
-        when(sessionLifecycleManager.handleJoinSession(any(JoinRequest.class))).thenReturn(response);
+        when(sessionLifecycleManager.handleJoinSession(any(GrpcJoinRequest.class))).thenReturn(response);
         //act
-        JoinResponse stubResponse = blockingStub.joinSession(joinRequest);
+        GrpcJoinResponse stubResponse = blockingStub.joinSession(joinRequest);
         //assert
         assertTrue(stubResponse.getSuccess(), "Response should be successful");
     }

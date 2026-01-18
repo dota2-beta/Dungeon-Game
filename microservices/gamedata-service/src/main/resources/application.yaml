@@ -1,7 +1,9 @@
-server:
-  port: 9092
-
 spring:
+  grpc:
+    server:
+      port: 9096
+      servlet:
+        enabled: false
   application:
     name: gamedata-service
   datasource:
@@ -18,3 +20,5 @@ spring:
     properties:
       hibernate:
         format_sql: true
+server:
+  port: 9092

@@ -6,12 +6,23 @@ spring:
       bootstrap-servers: localhost:9094
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  grpc:
+    server:
+      port: 9095
+      servlet:
+        enabled: false
 server:
   port: 9091
 grpc:
-  server:
-    port: ${server.port}
   clients:
     gamedata-service:
       host: "localhost"
-      port: "9092"
+      port: 9096
+game:
+  settings:
+    default-entity-max-ap: 8
+    default-entity-current-ap: 6
+    default-monster-max-ap: 0
+    default-attack-cost: 2
+    default-movement-cost: 1
+    default-check-radius: 5

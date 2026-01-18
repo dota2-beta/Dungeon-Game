@@ -47,7 +47,6 @@ public class JoinSessionE2ETest {
     static final KafkaContainer kafka = new KafkaContainer(
             DockerImageName.parse("apache/kafka-native:3.8.0")
     );
-    // 2. Динамически подменяем адрес Kafka в application.yml на адрес из контейнера
     @DynamicPropertySource
     static void overrideKafkaProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.kafka.consumer.bootstrap-servers", kafka::getBootstrapServers);
@@ -58,8 +57,6 @@ public class JoinSessionE2ETest {
     @Autowired
     private KafkaTemplate<String, Object> kafkaTemplate;
 
-    // Мокаем сервис уведомлений, чтобы проверить факт вызова,
-    // но не пытаться реально слать сообщения в WebSocket
     @MockitoBean
     private NotificationService notificationService;
 

@@ -16,20 +16,30 @@ public final class Gamedata {
         (com.google.protobuf.ExtensionRegistryLite) registry);
   }
   static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_gameDataService_PlayerTemplateGrpcRequest_descriptor;
+    internal_static_gameDataService_EntityTemplateGrpcRequest_descriptor;
   static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_gameDataService_PlayerTemplateGrpcRequest_fieldAccessorTable;
+      internal_static_gameDataService_EntityTemplateGrpcRequest_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_gameDataService_PlayerTemplateGrpcResponse_descriptor;
+    internal_static_gameDataService_EntityTemplateGrpcResponse_descriptor;
   static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_gameDataService_PlayerTemplateGrpcResponse_fieldAccessorTable;
+      internal_static_gameDataService_EntityTemplateGrpcResponse_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_gameDataService_Stats_descriptor;
+    internal_static_gameDataService_SpawnPointInfoMsg_descriptor;
   static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_gameDataService_Stats_fieldAccessorTable;
+      internal_static_gameDataService_SpawnPointInfoMsg_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameDataService_GameMapRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameDataService_GameMapRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameDataService_GameMapResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameDataService_GameMapResponse_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -39,43 +49,68 @@ public final class Gamedata {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\016gamedata.proto\022\017gameDataService\"0\n\031Pla" +
-      "yerTemplateGrpcRequest\022\023\n\013template_id\030\001 " +
-      "\001(\t\"\216\001\n\032PlayerTemplateGrpcResponse\022\023\n\013te" +
-      "mplate_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\023\n\013descrip" +
-      "tion\030\003 \001(\t\022\021\n\tabilities\030\004 \003(\t\022%\n\005stats\030\005" +
-      " \001(\0132\026.gameDataService.Stats\"\210\001\n\005Stats\022\016" +
-      "\n\006max_hp\030\001 \001(\005\022\016\n\006attack\030\002 \001(\005\022\017\n\007defens" +
-      "e\030\003 \001(\005\022\022\n\ninitiative\030\004 \001(\005\022\016\n\006max_ap\030\005 " +
-      "\001(\005\022\024\n\014attack_range\030\006 \001(\005\022\024\n\014aggro_radiu" +
-      "s\030\007 \001(\0052\177\n\017GameDataService\022l\n\021GetPlayerT" +
-      "emplate\022*.gameDataService.PlayerTemplate" +
-      "GrpcRequest\032+.gameDataService.PlayerTemp" +
-      "lateGrpcResponseB.\n*com.dungeoncrawler.c" +
-      "ontracts.grpc.gamedataP\001b\006proto3"
+      "\n\016gamedata.proto\022\017gameDataService\032\014commo" +
+      "n.proto\032\033google/protobuf/empty.proto\"0\n\031" +
+      "EntityTemplateGrpcRequest\022\023\n\013template_id" +
+      "\030\001 \001(\t\"\223\001\n\032EntityTemplateGrpcResponse\022\023\n" +
+      "\013template_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\014\n\004type" +
+      "\030\003 \001(\t\022\023\n\013description\030\004 \001(\t\022\021\n\tabilities" +
+      "\030\005 \003(\t\022\034\n\005stats\030\006 \001(\0132\r.common.Stats\"K\n\021" +
+      "SpawnPointInfoMsg\022\"\n\ncoordinate\030\001 \001(\0132\016." +
+      "common.HexMsg\022\022\n\ntemplateId\030\002 \001(\t\"\037\n\016Gam" +
+      "eMapRequest\022\r\n\005level\030\001 \001(\t\"\260\001\n\017GameMapRe" +
+      "sponse\022\036\n\005tiles\030\001 \003(\0132\017.common.TileMsg\022=" +
+      "\n\021playerSpawnPoints\030\002 \003(\0132\".gameDataServ" +
+      "ice.SpawnPointInfoMsg\022>\n\022monsterSpawnPoi" +
+      "nts\030\003 \003(\0132\".gameDataService.SpawnPointIn" +
+      "foMsg2\235\002\n\017GameDataService\022l\n\021GetEntityTe" +
+      "mplate\022*.gameDataService.EntityTemplateG" +
+      "rpcRequest\032+.gameDataService.EntityTempl" +
+      "ateGrpcResponse\022O\n\nGetGameMap\022\037.gameData" +
+      "Service.GameMapRequest\032 .gameDataService" +
+      ".GameMapResponse\022K\n\020GetPlayerClasses\022\026.g" +
+      "oogle.protobuf.Empty\032\037.common.PlayerClas" +
+      "sListResponseB.\n*com.dungeoncrawler.cont" +
+      "racts.grpc.gamedataP\001b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
+          com.dungeoncrawler.contracts.grpc.common.Common.getDescriptor(),
+          com.google.protobuf.EmptyProto.getDescriptor(),
         });
-    internal_static_gameDataService_PlayerTemplateGrpcRequest_descriptor =
+    internal_static_gameDataService_EntityTemplateGrpcRequest_descriptor =
       getDescriptor().getMessageTypes().get(0);
-    internal_static_gameDataService_PlayerTemplateGrpcRequest_fieldAccessorTable = new
+    internal_static_gameDataService_EntityTemplateGrpcRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_gameDataService_PlayerTemplateGrpcRequest_descriptor,
+        internal_static_gameDataService_EntityTemplateGrpcRequest_descriptor,
         new java.lang.String[] { "TemplateId", });
-    internal_static_gameDataService_PlayerTemplateGrpcResponse_descriptor =
+    internal_static_gameDataService_EntityTemplateGrpcResponse_descriptor =
       getDescriptor().getMessageTypes().get(1);
-    internal_static_gameDataService_PlayerTemplateGrpcResponse_fieldAccessorTable = new
+    internal_static_gameDataService_EntityTemplateGrpcResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_gameDataService_PlayerTemplateGrpcResponse_descriptor,
-        new java.lang.String[] { "TemplateId", "Name", "Description", "Abilities", "Stats", });
-    internal_static_gameDataService_Stats_descriptor =
+        internal_static_gameDataService_EntityTemplateGrpcResponse_descriptor,
+        new java.lang.String[] { "TemplateId", "Name", "Type", "Description", "Abilities", "Stats", });
+    internal_static_gameDataService_SpawnPointInfoMsg_descriptor =
       getDescriptor().getMessageTypes().get(2);
-    internal_static_gameDataService_Stats_fieldAccessorTable = new
+    internal_static_gameDataService_SpawnPointInfoMsg_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_gameDataService_Stats_descriptor,
-        new java.lang.String[] { "MaxHp", "Attack", "Defense", "Initiative", "MaxAp", "AttackRange", "AggroRadius", });
+        internal_static_gameDataService_SpawnPointInfoMsg_descriptor,
+        new java.lang.String[] { "Coordinate", "TemplateId", });
+    internal_static_gameDataService_GameMapRequest_descriptor =
+      getDescriptor().getMessageTypes().get(3);
+    internal_static_gameDataService_GameMapRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameDataService_GameMapRequest_descriptor,
+        new java.lang.String[] { "Level", });
+    internal_static_gameDataService_GameMapResponse_descriptor =
+      getDescriptor().getMessageTypes().get(4);
+    internal_static_gameDataService_GameMapResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameDataService_GameMapResponse_descriptor,
+        new java.lang.String[] { "Tiles", "PlayerSpawnPoints", "MonsterSpawnPoints", });
+    com.dungeoncrawler.contracts.grpc.common.Common.getDescriptor();
+    com.google.protobuf.EmptyProto.getDescriptor();
   }
 
   // @@protoc_insertion_point(outer_class_scope)

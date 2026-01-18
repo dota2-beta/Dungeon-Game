@@ -1,10 +1,9 @@
-FROM gradle:8.5-jdk17 AS builder
+FROM gradle:8.5-jdk17 AS build
 WORKDIR /app
 COPY . .
-RUN chmod +x ./gradlew
-RUN ./gradlew :microservices:websocket-service:bootJar --no-daemon
+RUN gradle :microservices:websocket-service:bootJar --no-daemon -x test
 
-FROM eclipse-temurin:17-jre-focal
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-COPY --from=builder /app/microservices/websocket-service/build/libs/*.jar app.jar
+COPY --from=build /app/microservices/websocket-service/build/libs/*.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]

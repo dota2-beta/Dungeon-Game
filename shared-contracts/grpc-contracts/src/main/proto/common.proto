@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package common;
+
+option java_multiple_files = true;
+option java_package = "com.dungeoncrawler.contracts.grpc.common";
+
+message HexMsg {
+  int32 q = 1;
+  int32 r = 2;
+}
+
+message Stats {
+  int32 max_hp = 1;
+  int32 attack = 2;
+  int32 defense = 3;
+  int32 initiative = 4;
+  int32 max_ap = 5;
+  int32 attack_range = 6;
+  int32 aggro_radius = 7;
+}
+
+message TileMsg {
+  HexMsg coordinate = 1;
+  string type = 2;
+}
+
+message PlayerClassTemplateMsg {
+  string template_id = 1;
+  string name = 2;
+}
+
+message PlayerClassListResponse {
+  repeated common.PlayerClassTemplateMsg classes = 1;
+}

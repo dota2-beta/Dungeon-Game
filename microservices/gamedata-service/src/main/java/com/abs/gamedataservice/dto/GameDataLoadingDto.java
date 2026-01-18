@@ -7,14 +7,15 @@ import java.util.List;
 
 @Data
 public class GameDataLoadingDto {
-    @JsonProperty("player-classes")
-    List<PlayerTemplateDto> playerTemplateDtoList;
+    @JsonProperty("entity-classes")
+    List<EntityTemplateDto> entityTemplateDtoList;
 
     @Data
-    public static class PlayerTemplateDto {
+    public static class EntityTemplateDto {
         private String templateId;
         private String name;
         private String description;
+        private String type;
         private List<String> abilities;
         private StatsDto stats;
     }

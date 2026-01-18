@@ -1,13 +1,12 @@
 package com.abs.dungeoncrawler.gamesessionservice.clients;
 
-import com.dungeoncrawler.contracts.grpc.gamedata.GameDataServiceGrpc;
-import com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcRequest;
-import com.dungeoncrawler.contracts.grpc.gamedata.PlayerTemplateGrpcResponse;
+import com.dungeoncrawler.contracts.grpc.common.PlayerClassListResponse;
+import com.dungeoncrawler.contracts.grpc.gamedata.*;
+import com.google.protobuf.Empty;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-//import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -18,19 +17,43 @@ import java.util.Optional;
 public class GameDataClient {
     private final GameDataServiceGrpc.GameDataServiceBlockingStub blockingStub;
 
-    public Optional<PlayerTemplateGrpcResponse> getPlayerTemplate(String templateId) {
+    public Optional<EntityTemplateGrpcResponse> getEntityTemplate(String templateId) {
         try {
-            PlayerTemplateGrpcRequest request = PlayerTemplateGrpcRequest.newBuilder()
+            EntityTemplateGrpcRequest request = EntityTemplateGrpcRequest.newBuilder()
                     .setTemplateId(templateId)
                     .build();
-            PlayerTemplateGrpcResponse response = blockingStub.getPlayerTemplate(request);
-            return Optional.ofNullable(response);
+            return Optional.ofNullable(blockingStub.getEntityTemplate(request));
         } catch (StatusRuntimeException e) {
             if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
                 log.error("Player template not found");
                 return Optional.empty();
             }
             log.error("Error calling GameDataService", e);
+            throw e;
+        }
+    }
+
+    public Optional<GameMapResponse> getGameMap(String level) {
+        try {
+            GameMapRequest request = GameMapRequest.newBuilder()
+                    .setLevel(level)
+                    .build();
+            return Optional.ofNullable(blockingStub.getGameMap(request));
+        } catch (StatusRuntimeException e) {
+            if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
+                log.error("Game map not found");
+                return Optional.empty();
+            }
+            log.error("Error calling GameDataService", e);
+            throw e;
+        }
+    }
+
+    public PlayerClassListResponse getPlayerClasses() {
+        try {
+            return blockingStub.getPlayerClasses(Empty.getDefaultInstance());
+        } catch (Exception e) {
+            log.error("Error calling GameDataService getPlayerClasses", e);
             throw e;
         }
     }

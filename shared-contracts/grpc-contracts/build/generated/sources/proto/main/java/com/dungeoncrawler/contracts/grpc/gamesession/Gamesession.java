@@ -16,15 +16,80 @@ public final class Gamesession {
         (com.google.protobuf.ExtensionRegistryLite) registry);
   }
   static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_gameSessionService_JoinRequest_descriptor;
+    internal_static_gameSessionService_GrpcJoinRequest_descriptor;
   static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_gameSessionService_JoinRequest_fieldAccessorTable;
+      internal_static_gameSessionService_GrpcJoinRequest_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_gameSessionService_JoinResponse_descriptor;
+    internal_static_gameSessionService_GrpcJoinResponse_descriptor;
   static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_gameSessionService_JoinResponse_fieldAccessorTable;
+      internal_static_gameSessionService_GrpcJoinResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameSessionService_GrpcCreateSessionRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameSessionService_GrpcCreateSessionRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameSessionService_GrpcCreateSessionResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameSessionService_GrpcCreateSessionResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameSessionService_GrpcMoveRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameSessionService_GrpcMoveRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameSessionService_GrpcAttackRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameSessionService_GrpcAttackRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameSessionService_GrpcActionResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameSessionService_GrpcActionResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameSessionService_GrpcEndTurnRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameSessionService_GrpcEndTurnRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameSessionService_GetStateRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameSessionService_GetStateRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameSessionService_GetStateResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameSessionService_GetStateResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameSessionService_GameSessionStateMsg_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameSessionService_GameSessionStateMsg_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameSessionService_MapStateMsg_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameSessionService_MapStateMsg_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameSessionService_EntityStateMsg_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameSessionService_EntityStateMsg_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameSessionService_GrpcProposePeaceRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameSessionService_GrpcProposePeaceRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_gameSessionService_GrpcRespondToPeaceRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_gameSessionService_GrpcRespondToPeaceRequest_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -34,32 +99,166 @@ public final class Gamesession {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\021gamesession.proto\022\022gameSessionService\"" +
-      "X\n\013JoinRequest\022\022\n\nsession_id\030\001 \001(\t\022\023\n\013te" +
-      "mplate_id\030\002 \001(\t\022\020\n\010username\030\003 \001(\t\022\016\n\006use" +
-      "rId\030\004 \001(\t\"6\n\014JoinResponse\022\017\n\007success\030\001 \001" +
-      "(\010\022\025\n\rerror_message\030\002 \001(\t2f\n\022GameSession" +
-      "Service\022P\n\013JoinSession\022\037.gameSessionServ" +
-      "ice.JoinRequest\032 .gameSessionService.Joi" +
-      "nResponseB1\n-com.dungeoncrawler.contract" +
-      "s.grpc.gamesessionP\001b\006proto3"
+      "\n\021gamesession.proto\022\022gameSessionService\032" +
+      "\014common.proto\032\033google/protobuf/empty.pro" +
+      "to\"\\\n\017GrpcJoinRequest\022\022\n\nsession_id\030\001 \001(" +
+      "\t\022\023\n\013template_id\030\002 \001(\t\022\020\n\010username\030\003 \001(\t" +
+      "\022\016\n\006userId\030\004 \001(\t\":\n\020GrpcJoinResponse\022\017\n\007" +
+      "success\030\001 \001(\010\022\025\n\rerror_message\030\002 \001(\t\"`\n\030" +
+      "GrpcCreateSessionRequest\022\023\n\013template_id\030" +
+      "\001 \001(\t\022\020\n\010username\030\002 \001(\t\022\016\n\006userId\030\003 \001(\t\022" +
+      "\r\n\005level\030\004 \001(\t\"W\n\031GrpcCreateSessionRespo" +
+      "nse\022\017\n\007success\030\001 \001(\010\022\022\n\nsession_id\030\002 \001(\t" +
+      "\022\025\n\rerror_message\030\003 \001(\t\"Z\n\017GrpcMoveReque" +
+      "st\022\022\n\nsession_id\030\001 \001(\t\022\017\n\007user_id\030\002 \001(\t\022" +
+      "\"\n\ncoordinate\030\003 \001(\0132\016.common.HexMsg\"O\n\021G" +
+      "rpcAttackRequest\022\022\n\nsession_id\030\001 \001(\t\022\023\n\013" +
+      "attacker_id\030\002 \001(\t\022\021\n\ttarget_id\030\003 \001(\t\"<\n\022" +
+      "GrpcActionResponse\022\017\n\007success\030\001 \001(\010\022\025\n\re" +
+      "rror_message\030\002 \001(\t\"9\n\022GrpcEndTurnRequest" +
+      "\022\022\n\nsession_id\030\001 \001(\t\022\017\n\007user_id\030\002 \001(\t\"6\n" +
+      "\017GetStateRequest\022\022\n\nsession_id\030\001 \001(\t\022\017\n\007" +
+      "user_id\030\002 \001(\t\"r\n\020GetStateResponse\022\017\n\007suc" +
+      "cess\030\001 \001(\010\022\025\n\rerror_message\030\002 \001(\t\0226\n\005sta" +
+      "te\030\003 \001(\0132\'.gameSessionService.GameSessio" +
+      "nStateMsg\"\223\001\n\023GameSessionStateMsg\022\022\n\nses" +
+      "sion_id\030\001 \001(\t\0222\n\tmap_state\030\002 \001(\0132\037.gameS" +
+      "essionService.MapStateMsg\0224\n\010entities\030\003 " +
+      "\003(\0132\".gameSessionService.EntityStateMsg\"" +
+      "-\n\013MapStateMsg\022\036\n\005tiles\030\001 \003(\0132\017.common.T" +
+      "ileMsg\"\365\001\n\016EntityStateMsg\022\n\n\002id\030\001 \001(\t\022\014\n" +
+      "\004name\030\002 \001(\t\022 \n\010position\030\003 \001(\0132\016.common.H" +
+      "exMsg\022\022\n\ncurrent_hp\030\004 \001(\005\022\016\n\006max_hp\030\005 \001(" +
+      "\005\022\022\n\ncurrent_ap\030\006 \001(\005\022\016\n\006max_ap\030\007 \001(\005\022\017\n" +
+      "\007defense\030\010 \001(\005\022\014\n\004type\030\t \001(\t\022\017\n\007team_id\030" +
+      "\n \001(\t\022\r\n\005state\030\013 \001(\t\022\024\n\007user_id\030\014 \001(\tH\000\210" +
+      "\001\001B\n\n\010_user_id\">\n\027GrpcProposePeaceReques" +
+      "t\022\022\n\nsession_id\030\001 \001(\t\022\017\n\007user_id\030\002 \001(\t\"P" +
+      "\n\031GrpcRespondToPeaceRequest\022\022\n\nsession_i" +
+      "d\030\001 \001(\t\022\017\n\007user_id\030\002 \001(\t\022\016\n\006accept\030\003 \001(\010" +
+      "2\336\006\n\022GameSessionService\022X\n\013JoinSession\022#" +
+      ".gameSessionService.GrpcJoinRequest\032$.ga" +
+      "meSessionService.GrpcJoinResponse\022l\n\rCre" +
+      "ateSession\022,.gameSessionService.GrpcCrea" +
+      "teSessionRequest\032-.gameSessionService.Gr" +
+      "pcCreateSessionResponse\022S\n\004Move\022#.gameSe" +
+      "ssionService.GrpcMoveRequest\032&.gameSessi" +
+      "onService.GrpcActionResponse\022W\n\006Attack\022%" +
+      ".gameSessionService.GrpcAttackRequest\032&." +
+      "gameSessionService.GrpcActionResponse\022Y\n" +
+      "\007EndTurn\022&.gameSessionService.GrpcEndTur" +
+      "nRequest\032&.gameSessionService.GrpcAction" +
+      "Response\022\\\n\017GetSessionState\022#.gameSessio" +
+      "nService.GetStateRequest\032$.gameSessionSe" +
+      "rvice.GetStateResponse\022K\n\020GetPlayerClass" +
+      "es\022\026.google.protobuf.Empty\032\037.common.Play" +
+      "erClassListResponse\022c\n\014ProposePeace\022+.ga" +
+      "meSessionService.GrpcProposePeaceRequest" +
+      "\032&.gameSessionService.GrpcActionResponse" +
+      "\022g\n\016RespondToPeace\022-.gameSessionService." +
+      "GrpcRespondToPeaceRequest\032&.gameSessionS" +
+      "ervice.GrpcActionResponseB1\n-com.dungeon" +
+      "crawler.contracts.grpc.gamesessionP\001b\006pr" +
+      "oto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
+          com.dungeoncrawler.contracts.grpc.common.Common.getDescriptor(),
+          com.google.protobuf.EmptyProto.getDescriptor(),
         });
-    internal_static_gameSessionService_JoinRequest_descriptor =
+    internal_static_gameSessionService_GrpcJoinRequest_descriptor =
       getDescriptor().getMessageTypes().get(0);
-    internal_static_gameSessionService_JoinRequest_fieldAccessorTable = new
+    internal_static_gameSessionService_GrpcJoinRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_gameSessionService_JoinRequest_descriptor,
+        internal_static_gameSessionService_GrpcJoinRequest_descriptor,
         new java.lang.String[] { "SessionId", "TemplateId", "Username", "UserId", });
-    internal_static_gameSessionService_JoinResponse_descriptor =
+    internal_static_gameSessionService_GrpcJoinResponse_descriptor =
       getDescriptor().getMessageTypes().get(1);
-    internal_static_gameSessionService_JoinResponse_fieldAccessorTable = new
+    internal_static_gameSessionService_GrpcJoinResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_gameSessionService_JoinResponse_descriptor,
+        internal_static_gameSessionService_GrpcJoinResponse_descriptor,
         new java.lang.String[] { "Success", "ErrorMessage", });
+    internal_static_gameSessionService_GrpcCreateSessionRequest_descriptor =
+      getDescriptor().getMessageTypes().get(2);
+    internal_static_gameSessionService_GrpcCreateSessionRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameSessionService_GrpcCreateSessionRequest_descriptor,
+        new java.lang.String[] { "TemplateId", "Username", "UserId", "Level", });
+    internal_static_gameSessionService_GrpcCreateSessionResponse_descriptor =
+      getDescriptor().getMessageTypes().get(3);
+    internal_static_gameSessionService_GrpcCreateSessionResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameSessionService_GrpcCreateSessionResponse_descriptor,
+        new java.lang.String[] { "Success", "SessionId", "ErrorMessage", });
+    internal_static_gameSessionService_GrpcMoveRequest_descriptor =
+      getDescriptor().getMessageTypes().get(4);
+    internal_static_gameSessionService_GrpcMoveRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameSessionService_GrpcMoveRequest_descriptor,
+        new java.lang.String[] { "SessionId", "UserId", "Coordinate", });
+    internal_static_gameSessionService_GrpcAttackRequest_descriptor =
+      getDescriptor().getMessageTypes().get(5);
+    internal_static_gameSessionService_GrpcAttackRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameSessionService_GrpcAttackRequest_descriptor,
+        new java.lang.String[] { "SessionId", "AttackerId", "TargetId", });
+    internal_static_gameSessionService_GrpcActionResponse_descriptor =
+      getDescriptor().getMessageTypes().get(6);
+    internal_static_gameSessionService_GrpcActionResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameSessionService_GrpcActionResponse_descriptor,
+        new java.lang.String[] { "Success", "ErrorMessage", });
+    internal_static_gameSessionService_GrpcEndTurnRequest_descriptor =
+      getDescriptor().getMessageTypes().get(7);
+    internal_static_gameSessionService_GrpcEndTurnRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameSessionService_GrpcEndTurnRequest_descriptor,
+        new java.lang.String[] { "SessionId", "UserId", });
+    internal_static_gameSessionService_GetStateRequest_descriptor =
+      getDescriptor().getMessageTypes().get(8);
+    internal_static_gameSessionService_GetStateRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameSessionService_GetStateRequest_descriptor,
+        new java.lang.String[] { "SessionId", "UserId", });
+    internal_static_gameSessionService_GetStateResponse_descriptor =
+      getDescriptor().getMessageTypes().get(9);
+    internal_static_gameSessionService_GetStateResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameSessionService_GetStateResponse_descriptor,
+        new java.lang.String[] { "Success", "ErrorMessage", "State", });
+    internal_static_gameSessionService_GameSessionStateMsg_descriptor =
+      getDescriptor().getMessageTypes().get(10);
+    internal_static_gameSessionService_GameSessionStateMsg_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameSessionService_GameSessionStateMsg_descriptor,
+        new java.lang.String[] { "SessionId", "MapState", "Entities", });
+    internal_static_gameSessionService_MapStateMsg_descriptor =
+      getDescriptor().getMessageTypes().get(11);
+    internal_static_gameSessionService_MapStateMsg_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameSessionService_MapStateMsg_descriptor,
+        new java.lang.String[] { "Tiles", });
+    internal_static_gameSessionService_EntityStateMsg_descriptor =
+      getDescriptor().getMessageTypes().get(12);
+    internal_static_gameSessionService_EntityStateMsg_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameSessionService_EntityStateMsg_descriptor,
+        new java.lang.String[] { "Id", "Name", "Position", "CurrentHp", "MaxHp", "CurrentAp", "MaxAp", "Defense", "Type", "TeamId", "State", "UserId", });
+    internal_static_gameSessionService_GrpcProposePeaceRequest_descriptor =
+      getDescriptor().getMessageTypes().get(13);
+    internal_static_gameSessionService_GrpcProposePeaceRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameSessionService_GrpcProposePeaceRequest_descriptor,
+        new java.lang.String[] { "SessionId", "UserId", });
+    internal_static_gameSessionService_GrpcRespondToPeaceRequest_descriptor =
+      getDescriptor().getMessageTypes().get(14);
+    internal_static_gameSessionService_GrpcRespondToPeaceRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_gameSessionService_GrpcRespondToPeaceRequest_descriptor,
+        new java.lang.String[] { "SessionId", "UserId", "Accept", });
+    com.dungeoncrawler.contracts.grpc.common.Common.getDescriptor();
+    com.google.protobuf.EmptyProto.getDescriptor();
   }
 
   // @@protoc_insertion_point(outer_class_scope)

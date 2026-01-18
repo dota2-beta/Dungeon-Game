@@ -13,6 +13,10 @@ grpc:
   clients:
     gamesession-service:
       host: "localhost"
-      port: "9091"
+      port: "9095"
 server:
   port: 9090
+logging:
+  level:
+    org.springframework.web.socket: TRACE
+    org.springframework.messaging: TRACE

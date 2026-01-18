@@ -1,14 +1,13 @@
 package com.abs.dungeonCrawler.eventcontracts.Dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class PlayerStateDto {
+public class PlayerStateDto extends EntityStateDto {
     private String userId;
 }

@@ -1,482 +1,254 @@
-import { useEffect, useState, type FC } from 'react';
-import { connect, disconnect, publish, subscribe } from './api/websocketService';
-import AbilityBar from './components/AbilityBar';
-import CombatOutcomeNotification from './components/CombatOutcomeNotification';
-import GameCanvas from './components/GameCanvas';
-import HoveredEntityHUD from './components/HoveredEntityHUD';
-import MainHUD from './components/MainHUD';
-import NotificationUI from './components/NotificationUI';
-import PeaceProposalUI from './components/PeaceProposalUI';
-import PlayerContextMenu from './components/PlayerContextMenu';
-import TeamInviteUI from './components/TeamInviteUI';
-import TeamStatusUI from './components/TeamStatusUI';
-import TurnOrder from './components/TurnOrder';
-import { GameProvider, useGame } from './context/GameContext';
-import type {
-    AbilityCastedEvent,
-    AbilityTemplateDto,
-    CasterStateUpdatedEvent,
-    CombatEndedEvent,
-    CombatNextTurnEvent,
-    CombatParticipantsJoinedEvent,
-    CombatStartedEvent,
-    EntityAttackEvent,
-    EntityDiedEvent,
-    EntityMovedEvent,
-    EntityStatsUpdatedEvent,
-    EntityTurnEndedEvent,
-    ErrorEvent,
-    GameSessionStateDto,
-    GameUpdatePayload,
-    JoinRequest,
-    PeaceProposalEvent,
-    PeaceProposalResultEvent,
-    PlayerClassTemplateDto,
-    PlayerLeftEvent,
-    TeamInviteEvent,
-    TeamUpdatedEvent
-} from './types/dto';
+import { useEffect, useState } from 'react';
+import { gameSocket } from './api/GameSocket';
+import { useGameState } from './store/GameContext';
+import GameMap from './components/GameMap';
+import { GameInterface } from './components/GameInterface';
 
-const Game: FC = () => {
-    const { gameState, dispatch, setErrorMessage } = useGame();
-    const { errorMessage } = useGame();
+interface Toast {
+    id: number;
+    message: string;
+    type: 'error' | 'info';
+}
 
-    const [sessionId, setSessionId] = useState<string | null>(null);
-    const [isConnectedToServer, setIsConnectedToServer] = useState<boolean>(false);
-    const [joinSessionId, setJoinSessionId] = useState<string>('');
+function App() {
+  const { state, dispatch } = useGameState();
+  
+  const [nickname, setNickname] = useState("Hero");
+  const [selectedClass, setSelectedClass] = useState("");
+  const [joinId, setJoinId] = useState("");
+  
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
-    const player = gameState.entities.find(e => e.id === gameState.yourPlayerId);
-    const teamMembers = player ? gameState.entities.filter(e => e.teamId === player.teamId) : [];
-    const teamCompositionKey = teamMembers.map(m => m.id).sort().join(',');
+  const showToast = (msg: string, type: 'error' | 'info' = 'info') => {
+      const id = Date.now();
+      setToasts(prev => [...prev, { id, message: msg, type }]);
+      setTimeout(() => {
+          setToasts(prev => prev.filter(t => t.id !== id));
+      }, 3000);
+  };
 
-    const [nickname, setNickname] = useState<string>('');
-    const [selectedClassId, setSelectedClassId] = useState<string>('');
-    const [availableClasses, setAvailableClasses] = useState<PlayerClassTemplateDto[]>([]);
-
-    const isLobbyFormInvalid = !nickname || !selectedClassId || availableClasses.length === 0;
-
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-
-    useEffect(() => {
-        const fetchGameData = async () => {
-            try {
-                const classResponse = await fetch(`${API_BASE_URL}/api/game-data/player-classes`);
-                if (!classResponse.ok) throw new Error('Failed to fetch classes');
-                const classData: PlayerClassTemplateDto[] = await classResponse.json();
-                setAvailableClasses(classData);
-                if (classData.length > 0) {
-                    setSelectedClassId(classData[0].templateId);
-                }
-
-                const abilityResponse = await fetch(`${API_BASE_URL}/api/game-data/abilities`);
-                if (!abilityResponse.ok) throw new Error('Failed to fetch abilities');
-                const abilityData: AbilityTemplateDto[] = await abilityResponse.json();
-                dispatch({ type: 'SET_ABILITY_TEMPLATES', payload: abilityData });
-
-            } catch (error) {
-                setErrorMessage("Could not load game data from server. Is the backend running?");
-            }
-        };
-        fetchGameData();
-    }, [dispatch, setErrorMessage]);
-
-    useEffect(() => {
-        const onStompConnect = () => {
-            setIsConnectedToServer(true);
-            setErrorMessage('');
-
-            subscribe<{ status: string; sessionId?: string; message?: string }>(
-                '/user/queue/create-session-response',
-                (response) => {
-                    if (response.status === 'success' && response.sessionId) {
-                        setSessionId(response.sessionId);
-                    } else {
-                        setErrorMessage(response.message || 'Failed to create session.');
-                    }
-                }
-            );
-
-            subscribe<{ status: string; message?: string }>(
-                '/user/queue/join-session-response',
-                (response) => {
-                    if (response.status !== 'success') {
-                        setErrorMessage(response.message || 'Failed to join session.');
-                    }
-                }
-            );
-
-            subscribe<ErrorEvent>(
-                '/user/queue/errors',
-                (errorPayload) => {
-                    // console.error(
-                    //     `Received error from server. Code: [${errorPayload.errorCode || 'NONE'}], Message: "${errorPayload.message}"`
-                    // );
-                    setErrorMessage(errorPayload.message || "An unknown error occurred.");
-                }
-            );
-
-            subscribe<GameUpdatePayload<any>>(
-                '/user/queue/events',
-                (update) => {
-                    switch (update.actionType) {
-                        case 'peace_proposal':
-                            dispatch({ type: 'PEACE_PROPOSAL_RECEIVED', payload: update.payload as PeaceProposalEvent });
-                            break;
-                        case 'peace_proposal_result': {
-                            const result = update.payload as PeaceProposalResultEvent;
-                            if (result.wasAccepted) {
-                                dispatch({ 
-                                    type: 'SHOW_NOTIFICATION', 
-                                    payload: { message: 'Peace proposal was accepted!', type: 'success' }
-                                });
-                            } else {
-                                dispatch({
-                                    type: 'SHOW_NOTIFICATION',
-                                    payload: { 
-                                        message: `Peace proposal was rejected by ${result.rejectorName ?? 'Someone'}!`, 
-                                        type: 'error' 
-                                    }
-                                });
-                            }
-                            dispatch({ type: 'PEACE_PROPOSAL_CONCLUDED' });
-                            break;
-                        }
-                        case 'team_invite': {
-                            dispatch({ type: 'TEAM_INVITE_RECEIVED', payload: update.payload as TeamInviteEvent });
-                            break;
-                        }
-                    }
-                }
-            );
-            
-        };
-
-        const onError = () => {
-            //console.error("Connection error:", error);
-            setIsConnectedToServer(false);
-            setErrorMessage('Failed to connect to the server. Please refresh.');
-        };
-
-        connect(onStompConnect, onError);
-
-        return () => {
-            disconnect();
-        };
-    }, [setErrorMessage, dispatch]);
-
-    useEffect(() => {
-        if (!isConnectedToServer || !sessionId) return;
-
-        //console.log(`Subscribing to session-specific topics for session: ${sessionId}`);
-
-        const initialStateSubscription = subscribe<GameSessionStateDto>(
-            `/user/queue/session/${sessionId}/state`, 
-            (state) => {
-                //console.log('Received initial game state:', state);
-                dispatch({ type: 'SET_INITIAL_STATE', payload: state });
-            }
-        );
-
-        const updatesSubscription = subscribe<GameUpdatePayload<any>>(
-            `/topic/session/${sessionId}/game-updates`, 
-            (update) => {
-                //console.log(`%c[CLIENT] Received event: ${update.actionType}`, 'color: purple; font-weight: bold;', update.payload);
-
-                if (update.actionType === 'entity_moved') {
-                    //const payload = update.payload as EntityMovedEvent;
-                    //console.log(`%c    Moved entity ${payload.entityId} to new position: (${payload.newPosition.q},${payload.newPosition.r})`, 'color: #2c3e50;');
-                }
-
-                if (update.actionType === 'combat_started') {
-                    //const payload = update.payload as CombatStartedEvent;
-                    //console.log(`%c    Combat has started! ID: ${payload.combatId}. Initial turn order:`, 'color: red; font-weight: bold;', payload.initialTurnOrder);
-                }
-                setErrorMessage('');
-
-                switch (update.actionType) {
-                    case 'entity_moved':
-                        dispatch({ type: 'ENTITY_MOVED', payload: update.payload as EntityMovedEvent });
-                        break;
-                    case 'entity_attack':
-                        dispatch({ type: 'ENTITY_ATTACKED', payload: update.payload as EntityAttackEvent });
-                        break;
-                    case 'entity_stats_updated':
-                        dispatch({ type: 'ENTITY_TOOK_DAMAGE', payload: update.payload as EntityStatsUpdatedEvent });
-                        break;
-                    case 'player_joined':
-                        dispatch({ type: 'ADD_NEW_ENTITY', payload: update.payload.player });
-                        break;
-                    case 'player_left':
-                        dispatch({ type: 'REMOVE_ENTITY', payload: update.payload as PlayerLeftEvent });
-                        break;
-                    case 'combat_started':
-                        dispatch({ type: 'COMBAT_STARTED', payload: update.payload as CombatStartedEvent });
-                        break;
-                    case 'combat_next_turn':
-                        dispatch({ type: 'NEXT_TURN', payload: update.payload as CombatNextTurnEvent });
-                        break;
-                    case 'combat_participants_joined':
-                        dispatch({ type: 'COMBAT_PARTICIPANTS_JOINED', payload: update.payload as CombatParticipantsJoinedEvent });
-                        break;
-                    case 'combat_ended':
-                        dispatch({ type: 'COMBAT_ENDED', payload: update.payload as CombatEndedEvent });
-                        break;
-                    case 'caster_state_updated':
-                        dispatch({ type: 'CASTER_STATE_UPDATED', payload: update.payload as CasterStateUpdatedEvent });
-                        break;
-                    
-                    case 'ability_casted':
-                        dispatch({ type: 'ABILITY_CASTED', payload: update.payload as AbilityCastedEvent });
-                        break;
-                    case 'team_updated':
-                        dispatch({ type: 'TEAM_UPDATED', payload: update.payload as TeamUpdatedEvent });
-                        break;
-                    case 'player_left':
-                        dispatch({ type: 'REMOVE_ENTITY', payload: update.payload as PlayerLeftEvent });
-                        break;
-                    case 'entity_turn_ended':
-                    dispatch({ type: 'ENTITY_TURN_ENDED', payload: update.payload as EntityTurnEndedEvent });
-                        break;
-                    case 'entity_died':
-                        dispatch({ type: 'ENTITY_DIED', payload: update.payload as EntityDiedEvent });
-                        break;
-                }
-            }
-        );
+  useEffect(() => {
+    gameSocket.onEvent((eventWrapper: any) => {
         
-        publish('/app/join-session', { sessionId: sessionId });
-
-        return () => {
-            initialStateSubscription?.unsubscribe();
-            updatesSubscription?.unsubscribe();
-        };
-
-    }, [sessionId, isConnectedToServer, dispatch, setErrorMessage]);
-
-    useEffect(() => {
-        if (sessionId && isConnectedToServer && nickname && selectedClassId) {
-            //console.log(`Sending join request for session ${sessionId} as ${nickname} (${selectedClassId})`);
-            
-            const payload = {
-                sessionId: sessionId,
-                name: nickname,
-                templateId: selectedClassId,
-            };
-            publish('/app/join-session', payload);
+        if (eventWrapper.eventType === 'state_snapshot') {
+            dispatch({ type: 'STATE_SNAPSHOT', payload: eventWrapper.payload });
+            showToast("World Loaded", 'info');
+        } 
+        else if (eventWrapper.eventType === 'error') {
+             showToast(eventWrapper.payload.message, 'error');
+        } 
+        else if (eventWrapper.eventType === 'SOCKET_DISCONNECTED') {
+            dispatch({ type: 'SOCKET_DISCONNECTED' });
+            showToast("Connection Lost", 'error');
         }
-    }, [sessionId, isConnectedToServer, nickname, selectedClassId]);
-
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                //console.log('Tab became visible. Requesting state sync.');
-                
-                if (isConnectedToServer && sessionId) {
-                    publish(`/app/session/${sessionId}/request-state`, {});
-                }
-            }
-        };
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [isConnectedToServer, sessionId]);
-
-    const handleCreateGame = () => {
-        if (isConnectedToServer && !isLobbyFormInvalid) {
-            setErrorMessage('');
-            const payload: JoinRequest = {
-                name: nickname,
-                templateId: selectedClassId
-            };
-            publish('/app/create-session', payload);
-        } else {
-            setErrorMessage('Not connected or character data is missing.');
+        else {
+            dispatch({ type: 'GAME_EVENT', payload: eventWrapper });
         }
-    };
+    });
 
-    const handleJoinGame = () => {
-        if (isConnectedToServer && joinSessionId && !isLobbyFormInvalid) {
-            setErrorMessage('');
-            setSessionId(joinSessionId);
-        } else {
-            setErrorMessage('Not connected, Session ID is empty, or character data is missing.');
-        }
-    };
+    gameSocket.activate();
+    dispatch({ type: 'SOCKET_CONNECTED' });
 
-    return (
-        <div style={{ 
-            position: 'relative',
-            padding: '20px', 
-            fontFamily: 'system-ui, sans-serif', 
-            maxWidth: '1240px',
-            margin: '0 auto' 
-        }}>
-            <div style={{
-                position: 'absolute',
-                top: '10px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                zIndex: 1000,
-                width: '90%',
-                maxWidth: '600px',
-                opacity: errorMessage ? 1 : 0,
-                visibility: errorMessage ? 'visible' : 'hidden',
-                transition: 'opacity 0.3s ease-in-out, visibility 0.3s ease-in-out',
-            }}>
-                {errorMessage && (
-                    <p style={{ 
-                        color: 'white', 
-                        backgroundColor: '#c82333', 
-                        padding: '12px', 
-                        borderRadius: '5px',
-                        margin: 0,
-                        boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
-                        textAlign: 'center',
-                    }}>
-                        <strong>Error:</strong> {errorMessage}
-                    </p>
-                )}
-            </div>
-            
-            <header style={{ marginBottom: '20px', borderBottom: '1px solid #ccc', paddingBottom: '10px' }}>
-                <h1>Dungeon Crawler Prototype</h1>
-                <p style={{ margin: '8px 0' }}>
-                    Connection Status: 
-                    <span style={{ 
-                        color: isConnectedToServer ? '#28a745' : '#dc3545', 
-                        fontWeight: 'bold',
-                        marginLeft: '8px' 
-                    }}>
-                        {isConnectedToServer ? 'Connected' : 'Disconnected'}
-                    </span>
-                </p>
-            </header>
+    const timer = setTimeout(() => {
+        gameSocket.requestPlayerClasses();
+    }, 1000);
 
-            <main>
-                {!sessionId ? (
-                    <div id="lobby">
-                        <h2>Lobby</h2>
-                        <div style={{ marginBottom: '25px', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
-                            <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Your Character</h3>
-                            <div style={{ marginBottom: '15px' }}>
-                                <label htmlFor="nickname" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Nickname:</label>
-                                <input
-                                    id="nickname"
-                                    type="text"
-                                    placeholder="Enter your name"
-                                    value={nickname}
-                                    onChange={(e) => setNickname(e.target.value)}
-                                    style={{ padding: '10px', fontSize: '16px', width: 'calc(100% - 22px)', border: '1px solid #ccc', borderRadius: '5px' }}
-                                />
-                            </div>
-                            <div>
-                                <label htmlFor="player-class" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Class:</label>
-                                <select
-                                    id="player-class"
-                                    value={selectedClassId}
-                                    onChange={(e) => setSelectedClassId(e.target.value)}
-                                    style={{ padding: '10px', fontSize: '16px', width: '100%', border: '1px solid #ccc', borderRadius: '5px', background: 'white' }}
-                                    disabled={availableClasses.length === 0}
-                                >
-                                    {availableClasses.length === 0 ? (
-                                        <option>Loading classes...</option>
-                                    ) : (
-                                        availableClasses.map(cls => (
-                                            <option key={cls.templateId} value={cls.templateId}>
-                                                {cls.name}
-                                            </option>
-                                        ))
-                                    )}
-                                </select>
-                                <p style={{fontSize: '14px', color: '#555', marginTop: '8px', minHeight: '30px'}}>
-                                    {availableClasses.find(c => c.templateId === selectedClassId)?.description}
-                                </p>
-                            </div>
-                        </div>
+    return () => clearTimeout(timer);
+  }, [dispatch]);
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                            <div style={{ padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>
-                                <h3>Create a New Game</h3>
-                                <button 
-                                    onClick={handleCreateGame} 
-                                    disabled={!isConnectedToServer || isLobbyFormInvalid} 
-                                    style={{ width: '100%', padding: '10px 15px', fontSize: '16px', cursor: 'pointer', border: '1px solid #007bff', backgroundColor: '#007bff', color: 'white', borderRadius: '5px', opacity: (!isConnectedToServer || isLobbyFormInvalid) ? 0.5 : 1 }}
-                                >
-                                    Create Game
-                                </button>
-                            </div>
+  useEffect(() => {
+      if (state.sessionId) {
+          console.log("Subscribing to session:", state.sessionId);
+          gameSocket.subscribeToSession(state.sessionId);
+          
+          setTimeout(() => {
+              gameSocket.requestSessionState(state.sessionId!);
+          }, 500);
+      }
+  }, [state.sessionId]);
 
-                            <div style={{ padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>
-                                <h3>Join an Existing Game</h3>
-                                <input
-                                    type="text"
-                                    placeholder="Enter Session ID"
-                                    value={joinSessionId}
-                                    onChange={(e) => setJoinSessionId(e.target.value)}
-                                    style={{ padding: '10px', fontSize: '16px', width: 'calc(100% - 22px)', border: '1px solid #ccc', borderRadius: '5px', marginBottom: '10px' }}
-                                />
-                                <button 
-                                    onClick={handleJoinGame} 
-                                    disabled={!isConnectedToServer || !joinSessionId || isLobbyFormInvalid} 
-                                    style={{ width: '100%', padding: '10px 15px', fontSize: '16px', cursor: 'pointer', border: '1px solid #28a745', backgroundColor: '#28a745', color: 'white', borderRadius: '5px', opacity: (!isConnectedToServer || !joinSessionId || isLobbyFormInvalid) ? 0.5 : 1 }}
-                                >
-                                    Join Game
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div id="game-session">
-                        <h2 style={{ wordBreak: 'break-all' }}>
-                            Game Session ID: 
-                            <span style={{ fontFamily: 'monospace', backgroundColor: '#eee', padding: '2px 6px', borderRadius: '3px', marginLeft: '8px' }}>
-                                {sessionId}
-                            </span>
-                        </h2>
-                        
-                        {gameState.mapState && gameState.mapState.tiles.length > 0 ? (
-                            <>
-                                <div style={{ 
-                                    position: 'relative',
-                                    border: '2px solid black', 
-                                    display: 'inline-block', 
-                                    marginTop: '10px',
-                                    lineHeight: 0,
-                                    backgroundColor: '#1d2327' 
-                                }}>
-                                    <GameCanvas />
-                                    <HoveredEntityHUD />
-                                    <NotificationUI />
-                                    <TurnOrder />
-                                    <CombatOutcomeNotification />
-                                    <TeamInviteUI />
-                                    <AbilityBar />
-                                    <MainHUD />
-                                    <PeaceProposalUI />
-                                    <PlayerContextMenu />
-                                    <TeamStatusUI key={teamCompositionKey} />
-                                </div>
-                                <p>Left-click to move or attack monsters. Right-click on a player to invite.</p>
-                            </>
-                        ) : (
-                            <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '5px' }}>
-                                <p style={{ margin: 0, fontWeight: 'bold' }}>Connecting to session and loading map...</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </main>
-        </div>
-    );
+  useEffect(() => {
+      if (state.playerClasses.length > 0 && !selectedClass) {
+          setSelectedClass(state.playerClasses[0].templateId);
+      }
+  }, [state.playerClasses]);
+
+  const handleCreate = () => {
+      if (!selectedClass) return showToast("Select a class!", 'error');
+      if (!nickname) return showToast("Enter nickname!", 'error');
+      gameSocket.createSession(nickname, selectedClass);
+  };
+
+  const handleJoin = () => {
+      if (!selectedClass) return showToast("Select a class!", 'error');
+      if (!joinId) return showToast("Enter Session ID!", 'error');
+      gameSocket.joinSession(joinId, nickname, selectedClass);
+  };
+
+  const copyId = () => {
+      if(state.sessionId) {
+          navigator.clipboard.writeText(state.sessionId);
+          showToast("ID Copied!", 'info');
+      }
+  }
+
+  return (
+    <div style={{ 
+        width: '100vw', 
+        height: '100vh', 
+        position: 'relative', 
+        overflow: 'hidden', 
+        background: '#111', 
+        fontFamily: 'monospace', 
+        color: '#eee' 
+    }}>
+      
+      <div style={{ 
+          position: 'absolute', 
+          top: 20, 
+          left: '50%', 
+          transform: 'translateX(-50%)', 
+          zIndex: 9999, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: 10, 
+          pointerEvents: 'none',
+          width: 'max-content'
+      }}>
+          {toasts.map(t => (
+              <div key={t.id} style={{
+                  background: t.type === 'error' ? 'rgba(220, 53, 69, 0.9)' : 'rgba(40, 167, 69, 0.9)',
+                  color: 'white', 
+                  padding: '10px 20px', 
+                  borderRadius: 4, 
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  textAlign: 'center',
+                  animation: 'fadeIn 0.3s'
+              }}>
+                  {t.type === 'error' ? '⚠️ ' : 'ℹ️ '} {t.message}
+              </div>
+          ))}
+      </div>
+
+      {state.sessionId ? (
+          <>
+              <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
+                  {state.map ? <GameMap /> : <div style={centerStyle}>Loading World...</div>}
+              </div>
+
+              <GameInterface />
+              
+              <div style={{ 
+                  position: 'absolute', 
+                  top: 10, 
+                  right: 10, 
+                  background: 'rgba(0,0,0,0.6)', 
+                  padding: '5px 10px', 
+                  borderRadius: 4, 
+                  fontSize: 11, 
+                  zIndex: 100,
+                  display: 'flex',
+                  alignItems: 'center'
+              }}>
+                  <span style={{opacity: 0.7, marginRight: 5}}>ID: {state.sessionId}</span>
+                  <button 
+                    onClick={copyId} 
+                    style={{
+                        cursor: 'pointer', 
+                        background: 'transparent', 
+                        border: 'none', 
+                        color: '#4CAF50', 
+                        fontSize: '14px'
+                    }}
+                    title="Copy Session ID"
+                  >
+                      📋
+                  </button>
+              </div>
+          </>
+      ) : (
+          <div style={{ ...centerStyle, flexDirection: 'column', gap: 20, height: '100%' }}>
+              <h1 style={{ color: '#f0a500', fontSize: '3rem', margin: 0, textShadow: '0 0 10px rgba(240, 165, 0, 0.5)' }}>
+                  Dungeon Crawler
+              </h1>
+              
+              <div style={{ 
+                  background: '#222', 
+                  padding: 30, 
+                  borderRadius: 10, 
+                  border: '1px solid #444', 
+                  width: 300, 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: 15,
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+              }}>
+                  
+                  <div>
+                      <label style={{display: 'block', marginBottom: 5, fontSize: 12, color: '#888'}}>Nickname</label>
+                      <input 
+                          value={nickname} 
+                          onChange={e => setNickname(e.target.value)}
+                          style={inputStyle}
+                      />
+                  </div>
+
+                  <div>
+                      <label style={{display: 'block', marginBottom: 5, fontSize: 12, color: '#888'}}>Class</label>
+                      <select 
+                          value={selectedClass} 
+                          onChange={e => setSelectedClass(e.target.value)}
+                          style={inputStyle}
+                      >
+                          {state.playerClasses.length === 0 && <option>Loading classes...</option>}
+                          {state.playerClasses.map(c => (
+                              <option key={c.templateId} value={c.templateId}>{c.name}</option>
+                          ))}
+                      </select>
+                  </div>
+
+                  <hr style={{border: '0', borderTop: '1px solid #444', width: '100%', margin: '10px 0'}}/>
+
+                  <button onClick={handleCreate} style={btnPrimary}>
+                        Create Session
+                  </button>
+
+                  <div style={{display: 'flex', gap: 5}}>
+                      <input 
+                          placeholder="Session ID to join" 
+                          value={joinId}
+                          onChange={e => setJoinId(e.target.value)}
+                          style={{...inputStyle, flex: 1}}
+                      />
+                      <button onClick={handleJoin} style={btnSecondary}>Join</button>
+                  </div>
+                  
+                  <div style={{fontSize: 10, color: '#555', textAlign: 'center', marginTop: 10}}>
+                      Server Status: {state.isConnected ? <span style={{color:'#4CAF50'}}>Online</span> : <span style={{color:'#F44336'}}>Offline</span>}
+                  </div>
+              </div>
+          </div>
+      )}
+    </div>
+  );
+}
+
+const centerStyle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', justifyContent: 'center'
 };
 
-const App: FC = () => {
-    return (
-        <GameProvider>
-            <Game />
-        </GameProvider>
-    );
+const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '10px', background: '#333', border: '1px solid #555', color: 'white', borderRadius: 4, boxSizing: 'border-box', outline: 'none'
+};
+
+const btnPrimary: React.CSSProperties = {
+    padding: '12px', background: '#f0a500', color: 'black', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', width: '100%'
+};
+
+const btnSecondary: React.CSSProperties = {
+    padding: '10px', background: '#444', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold'
 };
 
 export default App;

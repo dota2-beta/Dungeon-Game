@@ -1,11 +1,6 @@
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
+# --- OS & IDE (Мусор от системы и редакторов) ---
 .DS_Store
 Thumbs.db
-
 .idea/
 .vscode/
 *.iml
@@ -13,28 +8,47 @@ Thumbs.db
 .project
 .classpath
 .settings/
+.run/
 
+# --- Environment Variables (Секреты) ---
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
 
-backend/.gradle/
+# --- Logs ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-backend/build/
+# --- GRADLE & JAVA (Универсально для всех папок) ---
+# Игнорируем папку .gradle везде (в корне и в микросервисах)
+.gradle/
 
-backend/.gradletasknamecache
-backend/gradle-app.setting
+# Игнорируем папку build везде (там лежат скомпилированные классы и jar)
+build/
+out/
 
-backend/*.jar
-backend/*.war
+# Кэши задач Gradle
+.gradletasknamecache
 
-frontend/node_modules/
+# Игнорируем скомпилированные файлы, но НЕ игнорируем gradle-wrapper.jar
+*.jar
+*.war
+*.ear
+!gradle/wrapper/gradle-wrapper.jar
 
-frontend/build/
-frontend/dist/
+# --- FRONTEND / NODE.JS (Универсально) ---
+# Игнорируем node_modules везде (и в корне, и в frontend/)
+node_modules/
 
-frontend/.pnp
-frontend/.pnp.js
-frontend/coverage/
+# Папки сборки фронта
+dist/
+coverage/
+
+# Yarn Berry (если вдруг используешь)
+.pnp
+.pnp.js
+
+# --- DOCKER ---
+# Если вдруг создаются локальные тома или логи в папках
+.docker/

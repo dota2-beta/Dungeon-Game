@@ -2,21 +2,126 @@ syntax = "proto3";
 
 package gameSessionService;
 
+import "common.proto";
+import "google/protobuf/empty.proto";
+
 option java_multiple_files = true;
 option java_package = "com.dungeoncrawler.contracts.grpc.gamesession";
 
 service GameSessionService {
-  rpc JoinSession(JoinRequest) returns (JoinResponse);
+  rpc JoinSession(GrpcJoinRequest) returns (GrpcJoinResponse);
+  rpc CreateSession(GrpcCreateSessionRequest) returns (GrpcCreateSessionResponse);
+  rpc Move(GrpcMoveRequest) returns (GrpcActionResponse);
+  rpc Attack(GrpcAttackRequest) returns (GrpcActionResponse);
+  rpc EndTurn(GrpcEndTurnRequest) returns (GrpcActionResponse);
+  rpc GetSessionState(GetStateRequest) returns (GetStateResponse);
+  rpc GetPlayerClasses(google.protobuf.Empty) returns (common.PlayerClassListResponse);
+  rpc ProposePeace(GrpcProposePeaceRequest) returns (GrpcActionResponse);
+  rpc RespondToPeace(GrpcRespondToPeaceRequest) returns (GrpcActionResponse);
 }
 
-message JoinRequest {
+// JoinSession(...)
+
+message GrpcJoinRequest {
   string session_id = 1;
   string template_id = 2;
   string username = 3;
   string userId = 4;
 }
 
-message JoinResponse {
+message GrpcJoinResponse {
   bool success = 1;
   string error_message = 2;
+}
+
+// CreateSession(...)
+
+message GrpcCreateSessionRequest {
+  string template_id = 1;
+  string username = 2;
+  string userId = 3;
+  string level = 4;
+}
+
+message GrpcCreateSessionResponse {
+  bool success = 1;
+  string session_id = 2;
+  string error_message = 3;
+}
+
+// Move(...)
+message GrpcMoveRequest {
+  string session_id = 1;
+  string user_id = 2;
+  common.HexMsg coordinate = 3;
+}
+
+// Attack(..)
+
+message GrpcAttackRequest {
+  string session_id = 1;
+  string attacker_id = 2;
+  string target_id = 3;
+}
+
+message GrpcActionResponse {
+  bool success = 1;
+  string error_message = 2; // "Wall here", "Out of range", "Not your turn"
+}
+
+// EndTurn(...)
+
+message GrpcEndTurnRequest {
+  string session_id = 1;
+  string user_id = 2;
+}
+
+// GetSessionState(...)
+
+message GetStateRequest {
+  string session_id = 1;
+  string user_id = 2; // На случай проверок безопасности
+}
+
+message GetStateResponse {
+  bool success = 1;
+  string error_message = 2;
+  GameSessionStateMsg state = 3;
+}
+
+message GameSessionStateMsg {
+  string session_id = 1;
+  MapStateMsg map_state = 2;
+  repeated EntityStateMsg entities = 3;
+}
+
+message MapStateMsg {
+  repeated common.TileMsg tiles = 1;
+}
+
+message EntityStateMsg {
+  string id = 1;
+  string name = 2;
+  common.HexMsg position = 3;
+  int32 current_hp = 4;
+  int32 max_hp = 5;
+  int32 current_ap = 6;
+  int32 max_ap = 7;
+  int32 defense = 8;
+  string type = 9;    // "PLAYER" / "MONSTER"
+  string team_id = 10;
+  string state = 11;  // "EXPLORING" / "COMBAT"
+  optional string user_id = 12;
+}
+
+// Peace
+message GrpcProposePeaceRequest {
+  string session_id = 1;
+  string user_id = 2;
+}
+
+message GrpcRespondToPeaceRequest {
+  string session_id = 1;
+  string user_id = 2;
+  bool accept = 3;
 }

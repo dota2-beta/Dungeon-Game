@@ -21,7 +21,7 @@ public class GrpcClientConfig {
     @Bean(destroyMethod = "shutdown")
     public ManagedChannel gameDataChannel() {
         return ManagedChannelBuilder.forAddress(host, port)
-                .usePlaintext()//без ssl ля локал
+                .usePlaintext()//без ssl для локал
                 .build();
     }
     @Bean

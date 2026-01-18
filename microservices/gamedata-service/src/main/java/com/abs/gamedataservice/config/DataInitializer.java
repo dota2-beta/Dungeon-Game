@@ -1,11 +1,9 @@
 package com.abs.gamedataservice.config;
 
+import com.abs.gamedataservice.data.templates.EntityClassTemplate;
 import com.abs.gamedataservice.dto.GameDataLoadingDto;
-import com.abs.gamedataservice.mapper.PlayerTemplateMapper;
-import com.abs.gamedataservice.repositories.PlayerTemplateRepository;
-import com.abs.gamedataservice.templates.EntityStatsTemplate;
-import com.abs.gamedataservice.templates.PlayerClassTemplate;
-import com.dungeoncrawler.contracts.grpc.gamedata.Gamedata;
+import com.abs.gamedataservice.mapper.EntityTemplateMapper;
+import com.abs.gamedataservice.repositories.EntityTemplateRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import lombok.RequiredArgsConstructor;
@@ -21,22 +19,25 @@ import java.util.List;
 @Slf4j
 public class DataInitializer implements CommandLineRunner {
 
-    private final PlayerTemplateRepository repository;
-    private final PlayerTemplateMapper templateMapper;
+    private final EntityTemplateRepository repository;
+    private final EntityTemplateMapper templateMapper;
 
     @Override
     public void run(String... args) {
-        log.info("Loading data from yaml file");
-
+        log.info("Loading data from yaml files");
+        loadDataToDatabase("/templates/player_templates.yml");
+        loadDataToDatabase("/templates/monster_templates.yml");
+    }
+    private void loadDataToDatabase(String filepath) {
         ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        try(InputStream inputStream = getClass().getResourceAsStream("/templates/player_templates.yml")){
+        try(InputStream inputStream = getClass().getResourceAsStream(filepath)){
             if(inputStream == null){
                 log.warn("Game data file not found");
                 return;
             }
             GameDataLoadingDto data =  mapper.readValue(inputStream, GameDataLoadingDto.class);
-            List<PlayerClassTemplate> templates = data.getPlayerTemplateDtoList().stream()
-                    .map(templateMapper::mapToPlayerTemplate)
+            List<EntityClassTemplate> templates = data.getEntityTemplateDtoList().stream()
+                    .map(templateMapper::mapToEntityTemplate)
                     .toList();
             repository.saveAll(templates);
             log.info("Successfully loaded {} templates", templates.size());
